@@ -5,7 +5,7 @@ Features
   • Full zoom + rotate with toolbar & mouse scroll
   • Click placed box → flip orientation or reposition (non-fragile only)
   • Edit & validate predefined container sizes inline
-  • Pink & Purple premium UI
+  • White & Green premium UI
   • All algorithms imported from optimizer.py (no duplication)
 """
 
@@ -34,33 +34,39 @@ from optimizer import (
 )
 
 # ─────────────────────────────────────────────
-#  COLOUR PALETTE  (Pink & Purple)
+#  COLOUR PALETTE  (White & Green)
 # ─────────────────────────────────────────────
 
 C = {
-    # Backgrounds
-    "bg_main":    "#1a0033",   # deep indigo / near-black
-    "bg_panel":   "#2d0054",   # rich purple panel
-    "bg_card":    "#3d006e",   # card surface
-    "bg_light":   "#f9f0ff",   # lavender light (entry fields)
-    "bg_alt":     "#ede0f7",   # alternate row / info strip
+    # Base backgrounds kept light/white
+    "bg_main": "#ffffff",
+    "bg_panel": "#f8fdf9",
+    "bg_card": "#ffffff",
+    "bg_light": "#f1faf3",
+
     # Text
-    "fg_white":   "#ffffff",
-    "fg_lavender":"#e0c8ff",
-    "fg_dark":    "#1a0033",
-    # Accent colours
-    "pink_hot":   "#ff3d7f",   # hot pink  – primary CTA
-    "pink_mid":   "#e91e8c",   # mid pink  – secondary
-    "pink_soft":  "#f8bbd0",   # soft pink – subtle accents
-    "purple_hi":  "#ce93d8",   # highlight purple
-    "purple_btn": "#7b1fa2",   # button purple
-    "purple_mid": "#9c27b0",   # mid purple
-    "purple_dark":"#4a148c",   # dark purple  (headings)
-    # Status
-    "green":      "#69f0ae",
-    "amber":      "#ffd740",
-    "red":        "#ff5252",
+    "fg_lavender": "#335c43",
+    "fg_muted": "#6b7280",
+    "fg_dark": "#274c38",
+    "fg_white": "#ffffff",
+
+    # Main light-green palette
+    "primary": "#74c69d",
+    "primary_dark": "#52b788",
+    "primary_soft": "#b7e4c7",
+
+    # Compatibility keys used across the UI
+    "pink_hot": "#74c69d",
+    "pink_mid": "#95d5b2",
+    "pink_soft": "#52b788",
+    "purple_dark": "#d8f3dc",
+    "purple_btn": "#74c69d",
+    "purple_hi": "#52b788",
+    "green": "#40916c",
+    "amber": "#a3b18a",
+    "red": "#b85c5c",
 }
+
 
 # ─────────────────────────────────────────────
 #  EDIT CONTAINER DIALOG
@@ -757,7 +763,7 @@ class App(tk.Tk):
                 command=lambda e=elev, a=azim: self._set_view_angle(e, a),
             ).pack(side="left", padx=2)
 
-        # Matplotlib figure with dark background
+        # Matplotlib figure with a light card background
         self._fig = plt.Figure(figsize=(7.5, 6), dpi=90,
                                facecolor=C["bg_card"])
         self._ax = self._fig.add_subplot(111, projection="3d")
@@ -912,7 +918,7 @@ class App(tk.Tk):
         self._ax.set_facecolor(C["bg_card"])
         c = self.container
 
-        # Container wireframe in purple
+        # Container wireframe in green
         verts = [
             (0, 0, 0), (c.length, 0, 0), (c.length, c.width, 0), (0, c.width, 0),
             (0, 0, c.height), (c.length, 0, c.height),
@@ -925,12 +931,12 @@ class App(tk.Tk):
             self._ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]],
                           color=C["purple_hi"], alpha=0.35, linewidth=0.8)
 
-        # Pink & purple colour palette for boxes
+        # Green colour palette for boxes
         normal_cols = [
-            "#ce93d8", "#f48fb1", "#b39ddb", "#80deea",
-            "#a5d6a7", "#fff59d", "#ffcc80", "#ef9a9a",
+            "#f1faee", "#d8f3dc", "#c7f9cc", "#b7e4c7",
+            "#95d5b2", "#74c69d", "#52b788", "#40916c",
         ]
-        fragile_cols = ["#ff3d7f", "#ff6d00", "#e91e63"]
+        fragile_cols = ["#b7e4c7", "#95d5b2", "#74c69d"]
         ni = fi = 0
 
         for pb in placed:
@@ -952,8 +958,8 @@ class App(tk.Tk):
         self._ax.set_title(title, fontsize=9, fontweight="bold", color=C["pink_soft"])
 
         handles = [
-            mpatches.Patch(color="#ce93d8", label="Normal"),
-            mpatches.Patch(color="#cf5b82", label="Fragile"),
+            mpatches.Patch(color="#95d5b2", label="Normal"),
+            mpatches.Patch(color="#52b788", label="Fragile"),
         ]
         if highlight_id:
             handles.append(mpatches.Patch(color="gold", label=f"Selected #{highlight_id}"))
