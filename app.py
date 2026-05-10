@@ -34,7 +34,7 @@ from optimizer import (
 )
 
 # ─────────────────────────────────────────────
-#  COLOUR PALETTE  (White & Green)
+#  COLOUR PALETTE  (White & Light Purple)
 # ─────────────────────────────────────────────
 
 C = {
@@ -45,25 +45,25 @@ C = {
     "bg_light": "#f1faf3",
 
     # Text
-    "fg_lavender": "#335c43",
+    "fg_lavender": "#56427e",
     "fg_muted": "#6b7280",
-    "fg_dark": "#274c38",
+    "fg_dark": "#392650",
     "fg_white": "#ffffff",
 
-    # Main light-green palette
-    "primary": "#74c69d",
-    "primary_dark": "#52b788",
-    "primary_soft": "#b7e4c7",
+    # Main light-purple palette
+    "primary": "#ab8cf5",
+    "primary_dark": "#8f70db",
+    "primary_soft": "#d3c2fb",
 
     # Compatibility keys used across the UI
-    "pink_hot": "#74c69d",
-    "pink_mid": "#95d5b2",
-    "pink_soft": "#52b788",
-    "purple_dark": "#d8f3dc",
-    "purple_btn": "#74c69d",
-    "purple_hi": "#52b788",
-    "green": "#40916c",
-    "amber": "#a3b18a",
+    "pink_hot": "#ab8cf5",
+    "pink_mid": "#bda0fa",
+    "pink_soft": "#7f5eb8",
+    "purple_dark": "#ddcffb",
+    "purple_btn": "#9b7fe6",
+    "purple_hi": "#6c4aa6",
+    "green": "#7356ad",
+    "amber": "#aa8fd3",
     "red": "#b85c5c",
 }
 
@@ -918,7 +918,7 @@ class App(tk.Tk):
         self._ax.set_facecolor(C["bg_card"])
         c = self.container
 
-        # Container wireframe in green
+        # Container wireframe in light purple
         verts = [
             (0, 0, 0), (c.length, 0, 0), (c.length, c.width, 0), (0, c.width, 0),
             (0, 0, c.height), (c.length, 0, c.height),
@@ -931,12 +931,12 @@ class App(tk.Tk):
             self._ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]],
                           color=C["purple_hi"], alpha=0.35, linewidth=0.8)
 
-        # Green colour palette for boxes
+        # Light purple colour palette for boxes
         normal_cols = [
-            "#f1faee", "#d8f3dc", "#c7f9cc", "#b7e4c7",
-            "#95d5b2", "#74c69d", "#52b788", "#40916c",
+            "#efe8ff", "#ddcffb", "#cfbcfa", "#bda0fa",
+            "#ab8cf5", "#9b7fe6", "#8664ca", "#6c4aa6",
         ]
-        fragile_cols = ["#b7e4c7", "#95d5b2", "#74c69d"]
+        fragile_cols = ["#bda0fa", "#ab8cf5", "#8664ca"]
         ni = fi = 0
 
         for pb in placed:
@@ -958,8 +958,8 @@ class App(tk.Tk):
         self._ax.set_title(title, fontsize=9, fontweight="bold", color=C["pink_soft"])
 
         handles = [
-            mpatches.Patch(color="#95d5b2", label="Normal"),
-            mpatches.Patch(color="#52b788", label="Fragile"),
+            mpatches.Patch(color="#ab8cf5", label="Normal"),
+            mpatches.Patch(color="#8664ca", label="Fragile"),
         ]
         if highlight_id:
             handles.append(mpatches.Patch(color="gold", label=f"Selected #{highlight_id}"))
