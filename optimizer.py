@@ -451,21 +451,35 @@ def simulated_annealing(
                if initial_sequence
                else sorted(boxes, key=lambda b: b.volume, reverse=True))
 
-    _, current_util = pack_sequence(current, container)
+    cache: Dict[Tuple[int, ...], Tuple[List[dict], float]] = {}
+
+    def _evaluate(seq: List[Box]) -> Tuple[List[dict], float]:
+        key = tuple(box.id for box in seq)
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
+        placed_eval, util_eval = pack_sequence(seq, container)
+        cache[key] = (placed_eval, util_eval)
+        return placed_eval, util_eval
+
+    _, current_util = _evaluate(current)
     best_seq = current[:]
-    best_placed, best_util = pack_sequence(best_seq, container)
+    best_placed, best_util = _evaluate(best_seq)
 
     T = T_start
     step = 0
+    stale_steps = 0
+    max_stale_steps = 6
 
     while T > T_end:
+        improved_this_step = False
         for _ in range(iters_per_step):
             # Generate neighbour by swapping two random positions
             new_seq = current[:]
             i, j = random.sample(range(len(new_seq)), 2)
             new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
 
-            _, new_util = pack_sequence(new_seq, container)
+            _, new_util = _evaluate(new_seq)
             delta = new_util - current_util
 
             # Metropolis acceptance
@@ -476,12 +490,19 @@ def simulated_annealing(
             if current_util > best_util:
                 best_util = current_util
                 best_seq = current[:]
-                best_placed, best_util = pack_sequence(best_seq, container)
+                best_placed, best_util = _evaluate(best_seq)
+                improved_this_step = True
 
         T *= cooling
         step += 1
-        if progress_cb and step % 10 == 0:
+        stale_steps = 0 if improved_this_step else stale_steps + 1
+
+        if progress_cb and step % 5 == 0:
             progress_cb(T, T_start, best_util)
+
+        # Stop early when SA is no longer improving the greedy baseline.
+        if stale_steps >= max_stale_steps:
+            break
 
     return best_placed, best_util, (time.time() - t0) * 1_000
 

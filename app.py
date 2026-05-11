@@ -6,7 +6,7 @@ Features
   • Click placed box → flip orientation or reposition (non-fragile only)
   • Edit & validate predefined container sizes inline
   • White & Green premium UI
-  • All algorithms imported from optimizer.py (no duplication)
+  • Algorithms linked to notebooks/NoteBook.ipynb via notebook_backend.py
 """
 
 import tkinter as tk
@@ -20,8 +20,8 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (registers 3D projection)
 import threading
 import time
 
-# ── All algorithms live in optimizer.py ──────────────────────────────────────
-from optimizer import (
+# ── Notebook-backed algorithms exposed through a stable app API ──────────────
+from notebook_backend import (
     Box,
     Container,
     PRESET_CONTAINERS,
@@ -647,8 +647,8 @@ class App(tk.Tk):
         sec3 = self._section(parent, "SA Parameters")
         self._sa_params: dict = {}
         for lbl, default in [
-            ("Start Temp", "1000"), ("End Temp", "0.1"),
-            ("Cooling Rate", "0.995"), ("Iters/Step", "30"),
+            ("Start Temp", "150"), ("End Temp", "5"),
+            ("Cooling Rate", "0.97"), ("Iters/Step", "6"),
         ]:
             row = tk.Frame(sec3, bg=C["bg_panel"]); row.pack(fill="x", pady=1)
             tk.Label(row, text=lbl + ":", bg=C["bg_panel"],
