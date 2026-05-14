@@ -1,5 +1,14 @@
 from __future__ import annotations
-
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (registers 3D projection)
+import threading
+import time
 import contextlib
 import io
 import json
@@ -271,3 +280,180 @@ __all__ = [
     "simulated_annealing",
     "draw_box_3d",
 ]
+
+# Add to notebook_backend.py
+
+def smart_greedy_pack(boxes, container, progress_cb=None):
+    """
+    Multi-strategy greedy that tries multiple sorting strategies and returns the best.
+    """
+    strategies = [
+        ("Volume (largest first)", lambda b: b.volume),
+        ("Volume (smallest first)", lambda b: -b.volume),
+        ("Max dimension", lambda b: max(b.length, b.width, b.height)),
+        ("Min dimension (small boxes last)", lambda b: -min(b.length, b.width, b.height)),
+        ("Area (footprint)", lambda b: b.length * b.width),
+        ("Perimeter", lambda b: b.length + b.width + b.height),
+        ("Surface area", lambda b: 2*(b.length*b.width + b.length*b.height + b.width*b.height)),
+        ("Volume × Density (heavy + large)", lambda b: b.volume * b.weight_kg),
+        ("Density (heavy first)", lambda b: b.weight_kg / b.volume if b.volume > 0 else 0),
+        ("Fragile first", lambda b: (0 if b.fragile else 1, -b.volume)),
+        ("Original order", None),  # Keep original dataset order
+    ]
+    
+    best_result = None
+    best_util = 0
+    best_strategy = None
+    best_placed = None
+    
+    total = len(strategies)
+    for idx, (strategy_name, key_func) in enumerate(strategies):
+        if progress_cb:
+            progress_cb(idx, total, strategy_name)
+        
+        # Sort boxes according to strategy
+        if key_func is None:
+            sorted_boxes = boxes[:]  # Original order
+        elif key_func == (0 if b.fragile else 1, -b.volume):
+            # Handle fragile first specially
+            sorted_boxes = sorted(boxes, key=lambda b: (0 if b.fragile else 1, -b.volume))
+        else:
+            sorted_boxes = sorted(boxes, key=key_func, reverse=True)
+        
+        # Pack using greedy placement
+        sm = SpaceManager(container)
+        placed = []
+        for box in sorted_boxes:
+            space, dims = sm.find_placement(box, strategy="bottom")
+            if space and dims:
+                pb = sm.place_box(box, space, dims)
+                if pb:
+                    placed.append(pb)
+        
+        util = sm.utilization()
+        
+        if util > best_util:
+            best_util = util
+            best_result = sm
+            best_strategy = strategy_name
+            best_placed = placed
+    
+    if progress_cb:
+        progress_cb(total, total, f"Best: {best_strategy}")
+    
+    return best_placed, best_util, best_strategy
+
+
+def simulated_annealing_interactive(boxes, container, initial_sequence=None,
+                                     T_start=500.0, T_end=5.0, cooling=0.97, 
+                                     iters_per_step=6, target_pct=80.0,
+                                     progress_cb=None, user_ask_cb=None):
+    """
+    Simulated Annealing with user interaction (asks to continue at target).
+    user_ask_cb: function(current_util, pct_of_max, iteration) -> bool
+                 Returns True to continue, False to stop.
+    """
+    import math
+    import random
+    import time
+    from copy import deepcopy
+    
+    # Start with greedy if no initial sequence provided
+    if initial_sequence is None:
+        initial_sequence = sorted(boxes, key=lambda b: b.volume, reverse=True)
+    
+    current_seq = initial_sequence[:]
+    random.shuffle(current_seq)
+    
+    # Initial evaluation
+    sm = SpaceManager(container)
+    for box in current_seq:
+        space, dims = sm.find_placement(box, strategy="bottom")
+        if space and dims:
+            sm.place_box(box, space, dims)
+    
+    current_score = sm.packed_volume
+    best_seq = current_seq[:]
+    best_score = current_score
+    
+    theoretical_max = sum(b.volume for b in boxes)
+    target_volume = theoretical_max * (target_pct / 100.0)
+    target_reached = False
+    
+    T = T_start
+    step = 0
+    total_iterations = 0
+    no_improvement_count = 0
+    start_time = time.time()
+    
+    while T > T_end:
+        for _ in range(iters_per_step):
+            total_iterations += 1
+            
+            # Check if target reached
+            if not target_reached and best_score >= target_volume:
+                target_reached = True
+                current_util = best_score / container.volume * 100
+                pct_of_max = best_score / theoretical_max * 100
+                
+                if user_ask_cb:
+                    should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
+                    if not should_continue:
+                        # User wants to stop
+                        break
+                else:
+                    print(f"Target reached at iteration {total_iterations}: {current_util:.1f}%")
+            
+            # Create neighbor by swapping
+            new_seq = current_seq[:]
+            i, j = random.sample(range(len(new_seq)), 2)
+            new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
+            
+            # Evaluate new sequence
+            sm2 = SpaceManager(container)
+            for box in new_seq:
+                space, dims = sm2.find_placement(box, strategy="bottom")
+                if space and dims:
+                    sm2.place_box(box, space, dims)
+            new_score = sm2.packed_volume
+            
+            delta = new_score - current_score
+            
+            # Acceptance criterion
+            if delta > 0 or (T > 1e-10 and random.random() < math.exp(delta / T)):
+                current_seq = new_seq
+                current_score = new_score
+                no_improvement_count = 0
+            else:
+                no_improvement_count += 1
+            
+            if current_score > best_score:
+                best_score = current_score
+                best_seq = current_seq[:]
+                no_improvement_count = 0
+            
+            # Progress callback
+            if progress_cb and total_iterations % 10 == 0:
+                progress_cb(T, best_score / container.volume * 100, total_iterations)
+            
+            # Early stop if stuck
+            if no_improvement_count > 200:
+                break
+        
+        # Check if user stopped
+        if target_reached and not should_continue:
+            break
+        
+        T *= cooling
+        step += 1
+    
+    # Final packing with best sequence
+    sm_best = SpaceManager(container)
+    for box in best_seq:
+        space, dims = sm_best.find_placement(box, strategy="bottom")
+        if space and dims:
+            sm_best.place_box(box, space, dims)
+    
+    execution_time = time.time() - start_time
+    
+    return sm_best.placed_boxes, sm_best.utilization(), execution_time
