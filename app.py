@@ -21,7 +21,7 @@ import threading
 import time
 
 # ── Notebook-backed algorithms exposed through a stable app API ──────────────
-from notebook_backend import (
+from app_backend import (
     Box,
     Container,
     PRESET_CONTAINERS,
