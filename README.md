@@ -1,5 +1,6 @@
 # The-3D-Container-Loading-Optimizer
 2nd Year AI project
+<<<<<<< Updated upstream
 Ines: I added the preprocessing part
 Ines: I added the generated data to the local one we have 
 
@@ -76,3 +77,5 @@ Result:
 
 For experiments and demonstrations, using the notebook backend is fine.
 For a fast and stable desktop app, `optimizer.py` is still the better backend.
+=======
+>>>>>>> Stashed changes
