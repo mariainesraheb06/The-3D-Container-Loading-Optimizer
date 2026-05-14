@@ -18,24 +18,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from __future__ import annotations
 import ast
-import contextlib
-import io
-import json
 import math
 import random
-import sys
-import time
-import types
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
-
-
+from copy import deepcopy
 
 NOTEBOOK_PATH = Path(__file__).parent / "notebooks" / "NoteBook.ipynb"
 
@@ -485,10 +472,7 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
     user_ask_cb: function(current_util, pct_of_max, iteration) -> bool
                  Returns True to continue, False to stop.
     """
-    import math
-    import random
-    import time
-    from copy import deepcopy
+
     
     # Start with greedy if no initial sequence provided
     if initial_sequence is None:
