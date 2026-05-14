@@ -668,6 +668,79 @@ class App(tk.Tk):
         problem = CLOProblem(self.container, self.boxes)
         self._run_with_progress(lambda: SAPacker().pack(problem))
 
+    def _run_sa_interactive(self):
+        """Run Simulated Annealing with user interaction (asks to continue)."""
+    if not self.last_result:
+        messagebox.showwarning("No Baseline", "Run Greedy, Smart Greedy, or GA first.")
+        return
+    
+    try:
+        T_start = float(self._sa_params["Start Temp"].get())
+        T_end   = float(self._sa_params["End Temp"].get())
+        cooling = float(self._sa_params["Cooling Rate"].get())
+        iters   = int(self._sa_params["Iters/Step"].get())
+        target  = float(self._sa_params["Target %"].get())
+    except ValueError:
+        messagebox.showerror("Invalid Params", "Check SA parameter values.")
+        return
+    
+    self._progress.start()
+    self._btn_sa.config(state="disabled")
+    self._btn_sa_interactive.config(state="disabled")
+    self._sa_label.config(text="SA Interactive running...")
+    
+    # Get initial sequence from last result
+    last_ids = [p["id"] for p in self.last_result]
+    init_seq = sorted(
+        self.boxes,
+        key=lambda b: last_ids.index(b.id) if b.id in last_ids else 999)
+    
+    def user_ask_cb(current_util, pct_of_max, iteration):
+        """Ask user via dialog whether to continue."""
+        response = messagebox.askyesno(
+            "Target Reached!",
+            f"Reached {pct_of_max:.1f}% of theoretical max at iteration {iteration}!\n"
+            f"Current utilization: {current_util:.1f}%\n"
+            f"Continue searching for better solution?",
+            parent=self
+        )
+        return response
+    
+    def task():
+        t0 = time.time()
+        
+        def prog(T, best, iteration):
+            self.after(0, lambda: self._sa_label.config(
+                text=f"SA: T={T:.2f}  iter={iteration}  best={best:.1f}%"))
+        
+        placed, util, _ = simulated_annealing_interactive(
+            self.boxes, self.container,
+            initial_sequence=init_seq,
+            T_start=T_start, T_end=T_end,
+            cooling=cooling, iters_per_step=iters,
+            target_pct=target,
+            progress_cb=prog,
+            user_ask_cb=user_ask_cb
+        )
+        rt = time.time() - t0
+        
+        self.after(0, lambda: self._on_sa_interactive_done(placed, util, rt))
+    
+    threading.Thread(target=task, daemon=True).start()
+
+    def _on_sa_interactive_done(self, placed, util, rt):
+        self._progress.stop()
+        self._btn_sa.config(state="normal")
+        self._btn_sa_interactive.config(state="normal")
+        imp = util - self.last_util
+        self._sa_label.config(
+            text=f"✅ SA Interactive done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
+        self.last_result = placed
+        self.last_util = util
+        self.last_algo = f"SA Interactive"
+        self._render_3d(placed, f"SA Interactive — {util:.1f}% utilization")
+        self._refresh_placed_tree()
+
 
 # ============================================================================
 # ENTRY POINT

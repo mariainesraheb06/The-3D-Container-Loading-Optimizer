@@ -447,24 +447,21 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
                                      iters_per_step=6, target_pct=80.0,
                                      progress_cb=None, user_ask_cb=None):
     """
-    Simulated Annealing with user interaction (asks to continue at target).
+    Simulated Annealing with user interaction.
     user_ask_cb: function(current_util, pct_of_max, iteration) -> bool
                  Returns True to continue, False to stop.
     """
-
+    # Start with greedy if no initial sequence provided
     if initial_sequence is None:
         initial_sequence = sorted(boxes, key=lambda b: b.volume, reverse=True)
     
     current_seq = initial_sequence[:]
     random.shuffle(current_seq)
     
-    sm = SpaceManager(container)
-    for box in current_seq:
-        space, dims = sm.find_placement(box, strategy="bottom")
-        if space and dims:
-            sm.place_box(box, space, dims)
+    # Initial evaluation using pack_sequence
+    from app_engine import pack_sequence
+    placed, current_score = pack_sequence(current_seq, container)
     
-    current_score = sm.packed_volume
     best_seq = current_seq[:]
     best_score = current_score
     
@@ -477,11 +474,13 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
     total_iterations = 0
     no_improvement_count = 0
     start_time = time.time()
+    should_continue = True
     
-    while T > T_end:
+    while T > T_end and should_continue:
         for _ in range(iters_per_step):
             total_iterations += 1
             
+            # Check if target reached
             if not target_reached and best_score >= target_volume:
                 target_reached = True
                 current_util = best_score / container.volume * 100
@@ -491,22 +490,18 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
                     should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
                     if not should_continue:
                         break
-                else:
-                    print(f"Target reached at iteration {total_iterations}: {current_util:.1f}%")
             
+            # Create neighbor by swapping
             new_seq = current_seq[:]
             i, j = random.sample(range(len(new_seq)), 2)
             new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
             
-            sm2 = SpaceManager(container)
-            for box in new_seq:
-                space, dims = sm2.find_placement(box, strategy="bottom")
-                if space and dims:
-                    sm2.place_box(box, space, dims)
-            new_score = sm2.packed_volume
+            # Evaluate new sequence
+            placed, new_score = pack_sequence(new_seq, container)
             
             delta = new_score - current_score
             
+            # Acceptance criterion
             if delta > 0 or (T > 1e-10 and random.random() < math.exp(delta / T)):
                 current_seq = new_seq
                 current_score = new_score
@@ -519,27 +514,26 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
                 best_seq = current_seq[:]
                 no_improvement_count = 0
             
+            # Progress callback
             if progress_cb and total_iterations % 10 == 0:
                 progress_cb(T, best_score / container.volume * 100, total_iterations)
             
+            # Early stop if stuck
             if no_improvement_count > 200:
                 break
         
-        if target_reached and not should_continue:
+        # Check if user stopped
+        if not should_continue:
             break
         
         T *= cooling
         step += 1
     
-    sm_best = SpaceManager(container)
-    for box in best_seq:
-        space, dims = sm_best.find_placement(box, strategy="bottom")
-        if space and dims:
-            sm_best.place_box(box, space, dims)
-    
+    # Final packing with best sequence
+    placed, _ = pack_sequence(best_seq, container)
     execution_time = time.time() - start_time
     
-    return sm_best.placed_boxes, sm_best.utilization(), execution_time
+    return placed, best_score / container.volume * 100, execution_time
 
 def validate_result(
     placed: List[dict],
