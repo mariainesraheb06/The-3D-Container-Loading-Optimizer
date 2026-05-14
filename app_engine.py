@@ -84,7 +84,7 @@ PRESET_CONTAINERS: List[Container] = [
 
 def _should_keep_cell(source: str) -> bool:
     stripped = source.lstrip()
-    return stripped.startswith(("class ", "def ", "@dataclass"))
+    return stripped.startswith(("class ", "def ", "@dataclass", "decode_sequence"))
 
 
 def _import_block(source: str) -> str:
@@ -387,25 +387,13 @@ def _to_optimizer_container(container: Container):
         height=container.height,
     )
 
-
-__all__ = [
-    "Box",
-    "Container",
-    "PRESET_CONTAINERS",
-    "pack_sequence",
-    "pack_sequence_with_forced",
-    "greedy_pack",
-    "genetic_algorithm",
-    "simulated_annealing",
-    "draw_box_3d",
-]
-
-# Add to notebook_backend.py
-
 def smart_greedy_pack(boxes, container, progress_cb=None):
     """
     Multi-strategy greedy that tries multiple sorting strategies and returns the best.
+    Uses greedy_pack which is already working.
     """
+    from app_engine import greedy_pack
+    
     strategies = [
         ("Volume (largest first)", lambda b: b.volume),
         ("Volume (smallest first)", lambda b: -b.volume),
@@ -417,13 +405,12 @@ def smart_greedy_pack(boxes, container, progress_cb=None):
         ("Volume × Density (heavy + large)", lambda b: b.volume * b.weight_kg),
         ("Density (heavy first)", lambda b: b.weight_kg / b.volume if b.volume > 0 else 0),
         ("Fragile first", lambda b: (0 if b.fragile else 1, -b.volume)),
-        ("Original order", None),  # Keep original dataset order
+        ("Original order", None),
     ]
     
-    best_result = None
+    best_placed = None
     best_util = 0
     best_strategy = None
-    best_placed = None
     
     total = len(strategies)
     for idx, (strategy_name, key_func) in enumerate(strategies):
@@ -432,30 +419,22 @@ def smart_greedy_pack(boxes, container, progress_cb=None):
         
         # Sort boxes according to strategy
         if key_func is None:
-            sorted_boxes = boxes[:]  # Original order
-        elif key_func == (0 if b.fragile else 1, -b.volume):
-            # Handle fragile first specially
-            sorted_boxes = sorted(boxes, key=lambda b: (0 if b.fragile else 1, -b.volume))
+            sorted_boxes = boxes[:]
         else:
             sorted_boxes = sorted(boxes, key=key_func, reverse=True)
         
-        # Pack using greedy placement
-        sm = SpaceManager(container)
-        placed = []
-        for box in sorted_boxes:
-            space, dims = sm.find_placement(box, strategy="bottom")
-            if space and dims:
-                pb = sm.place_box(box, space, dims)
-                if pb:
-                    placed.append(pb)
-        
-        util = sm.utilization()
+        # Use greedy_pack - this already works with your notebook
+        try:
+            placed, util, _ = greedy_pack(sorted_boxes, container)
+        except:
+            # Fallback to pack_sequence if greedy_pack fails
+            from app_engine import pack_sequence
+            placed, util = pack_sequence(sorted_boxes, container)
         
         if util > best_util:
             best_util = util
-            best_result = sm
-            best_strategy = strategy_name
             best_placed = placed
+            best_strategy = strategy_name
     
     if progress_cb:
         progress_cb(total, total, f"Best: {best_strategy}")
@@ -473,15 +452,12 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
                  Returns True to continue, False to stop.
     """
 
-    
-    # Start with greedy if no initial sequence provided
     if initial_sequence is None:
         initial_sequence = sorted(boxes, key=lambda b: b.volume, reverse=True)
     
     current_seq = initial_sequence[:]
     random.shuffle(current_seq)
     
-    # Initial evaluation
     sm = SpaceManager(container)
     for box in current_seq:
         space, dims = sm.find_placement(box, strategy="bottom")
@@ -506,7 +482,6 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
         for _ in range(iters_per_step):
             total_iterations += 1
             
-            # Check if target reached
             if not target_reached and best_score >= target_volume:
                 target_reached = True
                 current_util = best_score / container.volume * 100
@@ -515,17 +490,14 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
                 if user_ask_cb:
                     should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
                     if not should_continue:
-                        # User wants to stop
                         break
                 else:
                     print(f"Target reached at iteration {total_iterations}: {current_util:.1f}%")
             
-            # Create neighbor by swapping
             new_seq = current_seq[:]
             i, j = random.sample(range(len(new_seq)), 2)
             new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
             
-            # Evaluate new sequence
             sm2 = SpaceManager(container)
             for box in new_seq:
                 space, dims = sm2.find_placement(box, strategy="bottom")
@@ -535,7 +507,6 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
             
             delta = new_score - current_score
             
-            # Acceptance criterion
             if delta > 0 or (T > 1e-10 and random.random() < math.exp(delta / T)):
                 current_seq = new_seq
                 current_score = new_score
@@ -548,22 +519,18 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
                 best_seq = current_seq[:]
                 no_improvement_count = 0
             
-            # Progress callback
             if progress_cb and total_iterations % 10 == 0:
                 progress_cb(T, best_score / container.volume * 100, total_iterations)
             
-            # Early stop if stuck
             if no_improvement_count > 200:
                 break
         
-        # Check if user stopped
         if target_reached and not should_continue:
             break
         
         T *= cooling
         step += 1
     
-    # Final packing with best sequence
     sm_best = SpaceManager(container)
     for box in best_seq:
         space, dims = sm_best.find_placement(box, strategy="bottom")
@@ -639,3 +606,41 @@ def validate_result(
         "out_of_bounds": oob,
         "floating": floating,
     }
+
+def trim_unfittable_boxes(boxes: List[Box], container: Container) -> List[Box]:
+    """
+    Remove boxes that cannot theoretically fit in the container in any orientation.
+    """
+    trimmed_boxes = []
+    removed_ids = []
+    
+    for box in boxes:
+        # Check if box can fit in any orientation
+        fits = False
+        for l, w, h in box.get_orientations():
+            if l <= container.length and w <= container.width and h <= container.height:
+                fits = True
+                break
+        
+        if fits:
+            trimmed_boxes.append(box)
+        else:
+            removed_ids.append(box.id)
+    
+    if removed_ids:
+        print(f"⚠️ Removed {len(removed_ids)} box(es) that cannot fit: {removed_ids[:10]}...")
+    
+    return trimmed_boxes
+
+all = [
+    "Box",
+    "Container",
+    "PRESET_CONTAINERS",
+    "pack_sequence",
+    "pack_sequence_with_forced",
+    "greedy_pack",
+    "genetic_algorithm",
+    "simulated_annealing",
+    "draw_box_3d",
+    "validate_result",
+]
