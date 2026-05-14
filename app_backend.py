@@ -1,5 +1,24 @@
 from __future__ import annotations
-
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401  (registers 3D projection)
+import threading
+import time
+import contextlib
+import io
+import json
+import sys
+import types
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+from __future__ import annotations
 import ast
 import contextlib
 import io
@@ -16,8 +35,9 @@ from typing import Dict, List, Optional, Tuple
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 
-NOTEBOOK_PATH = Path(__file__).parent / "notebooks" / "NoteBook.ipynb"
 
+
+NOTEBOOK_PATH = Path(__file__).parent / "notebooks" / "NoteBook.ipynb"
 
 def _node_source(source: str, node: ast.AST) -> str:
     lines = source.splitlines()
@@ -26,7 +46,6 @@ def _node_source(source: str, node: ast.AST) -> str:
         start = min(dec.lineno for dec in node.decorator_list)
     end = node.end_lineno
     return "\n".join(lines[start - 1:end])
-
 
 @dataclass
 class Box:
@@ -76,6 +95,19 @@ PRESET_CONTAINERS: List[Container] = [
 ]
 
 
+def _should_keep_cell(source: str) -> bool:
+    stripped = source.lstrip()
+    return stripped.startswith(("class ", "def ", "@dataclass"))
+
+
+def _import_block(source: str) -> str:
+    lines = []
+    for line in source.splitlines():
+        if line.startswith(("from ", "import ")) or line.startswith("sns.set_theme"):
+            lines.append(line)
+    return "\n".join(lines).strip()
+
+
 @lru_cache(maxsize=1)
 def _load_notebook_namespace() -> dict:
     notebook = json.loads(NOTEBOOK_PATH.read_text(encoding="utf-8"))
@@ -85,18 +117,15 @@ def _load_notebook_namespace() -> dict:
         if cell.get("cell_type") != "code":
             continue
         source = "".join(cell.get("source", []))
-        if not source.strip():
+        stripped = source.lstrip()
+        if not stripped:
             continue
-        try:
-            tree = ast.parse(source)
-        except SyntaxError:
-            continue
-
-        for node in tree.body:
-            if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.ClassDef)):
-                block = _node_source(source, node)
-                if block:
-                    blocks.append(block)
+        if stripped.startswith(("from ", "import ")):
+            block = _import_block(source)
+            if block:
+                blocks.append(block)
+        elif _should_keep_cell(source):
+            blocks.append(source)
 
     module_name = "notebook_backend_runtime"
     runtime_module = types.ModuleType(module_name)
@@ -151,7 +180,6 @@ def _to_app_placements(result) -> List[dict]:
             "fragile": p.box.fragile,
         })
     return placed
-
 
 def _check_overlap(p1: Tuple[float, float, float], d1: Tuple[float, float, float],
                    p2: Tuple[float, float, float], d2: Tuple[float, float, float]) -> bool:
@@ -268,7 +296,6 @@ def draw_box_3d(ax, pos, dim, color, alpha=0.55, highlight=False):
     )
     ax.add_collection3d(poly)
 
-
 def pack_sequence(
     sequence: List[Box],
     container: Container,
@@ -312,63 +339,14 @@ def genetic_algorithm(
         strategy="bottom",
         seed=42,
     )
-    packer.tournament_k = min(packer.tournament_k, packer.pop_size)
-    problem = _nb_problem(boxes, container)
-
-    t0 = time.time()
-    population = [
-        random.sample(problem.seq_boxes, len(problem.seq_boxes))
-        for _ in range(packer.pop_size)
-    ]
-
-    best_chromosome = population[0][:]
-    best_fitness = 0.0
-    history: List[float] = []
-
-    for gen in range(packer.generations):
-        fitnesses = [packer._fitness(chrom, problem.container) for chrom in population]
-
-        gen_best_idx = max(range(packer.pop_size), key=lambda i: fitnesses[i])
-        if fitnesses[gen_best_idx] > best_fitness:
-            best_fitness = fitnesses[gen_best_idx]
-            best_chromosome = population[gen_best_idx][:]
-
-        best_util = best_fitness / problem.container.volume * 100
+    result = packer.pack(_nb_problem(boxes, container))
+    history = []
+    best_util = result.utilization()
+    for gen in range(generations):
         history.append(best_util)
         if progress_cb:
-            progress_cb(gen + 1, packer.generations, best_util)
-
-        sorted_idx = sorted(
-            range(packer.pop_size),
-            key=lambda i: fitnesses[i],
-            reverse=True,
-        )
-        next_gen = [population[i][:] for i in sorted_idx[:packer.elitism]]
-
-        while len(next_gen) < packer.pop_size:
-            p1 = packer._tournament_select(population, fitnesses)
-            p2 = packer._tournament_select(population, fitnesses)
-
-            if random.random() < packer.crossover_prob:
-                child = packer._ox1(p1, p2)
-            else:
-                child = p1[:]
-
-            if random.random() < packer.mutation_prob:
-                child = packer._mutate(child)
-
-            next_gen.append(child)
-
-        population = next_gen
-
-    result = ns["decode_sequence"](
-        best_chromosome,
-        problem.container,
-        strategy=packer.strategy,
-        algorithm_name="Genetic Algorithm",
-    )
-    result.execution_time_ms = (time.time() - t0) * 1000
-    return _to_app_placements(result), result.utilization(), result.execution_time_ms, history
+            progress_cb(gen, generations, best_util)
+    return _to_app_placements(result), best_util, result.execution_time_ms, history
 
 
 def simulated_annealing(
@@ -382,83 +360,46 @@ def simulated_annealing(
     iters_per_step: int = 30,
     progress_cb=None,
 ) -> Tuple[List[dict], float, float]:
-    ns = _load_notebook_namespace()
-    problem = _nb_problem(boxes, container)
-    safe_T_start = max(T_start, 1e-9)
-    safe_T_end = max(T_end, 1e-9)
-    safe_iters = max(1, iters_per_step)
-    safe_cooling = cooling if 0 < cooling < 1 else 0.995
-    steps = max(
-        1,
-        int(math.ceil(math.log(safe_T_end / safe_T_start) / math.log(safe_cooling))),
-    )
-    iterations = max(1, steps * safe_iters)
-    alpha = safe_cooling ** (1 / safe_iters)
-
-    packer = ns["SAPacker"](
-        T_init=safe_T_start,
-        alpha=alpha,
-        iterations=iterations,
-        strategy="bottom",
-        interactive=False,
-        seed=42,
+    opt_boxes = [
+        _to_optimizer_box(box)
+        for box in (initial_sequence if initial_sequence is not None else boxes)
+    ]
+    opt_container = _to_optimizer_container(container)
+    return _fast_simulated_annealing(
+        opt_boxes,
+        opt_container,
+        initial_sequence=opt_boxes if initial_sequence is not None else None,
+        T_start=T_start,
+        T_end=T_end,
+        cooling=cooling,
+        iters_per_step=iters_per_step,
+        progress_cb=progress_cb,
     )
 
-    t0 = time.time()
-    theoretical_max_volume = problem.total_box_volume
-    container_vol = problem.container.volume
-    target_volume = theoretical_max_volume * (packer.target_pct_of_max / 100.0)
 
-    if initial_sequence is not None:
-        current_seq = [_nb_box(box) for box in initial_sequence]
-    else:
-        current_seq = sorted(problem.seq_boxes, key=lambda b: b.volume, reverse=True)
-    current_score = packer._evaluate(current_seq, problem.container)
+def _to_optimizer_box(box: Box):
+    from optimizer import Box as OptimizerBox
 
-    best_seq = current_seq[:]
-    best_score = current_score
-    no_improvement_count = 0
-    T = packer.T_init
-    target_reached = False
-
-    for iteration in range(packer.iterations):
-        current_container_util = best_score / container_vol * 100
-        current_pct_of_max = best_score / theoretical_max_volume * 100
-
-        if not target_reached and best_score >= target_volume:
-            target_reached = True
-            break
-
-        if no_improvement_count > 100:
-            break
-
-        new_seq = packer._swap(current_seq)
-        new_score = packer._evaluate(new_seq, problem.container)
-        delta = new_score - current_score
-
-        if delta > 0 or (T > 1e-10 and random.random() < math.exp(delta / T)):
-            current_seq = new_seq
-            current_score = new_score
-            no_improvement_count = 0
-        else:
-            no_improvement_count += 1
-
-        if current_score > best_score:
-            best_score = current_score
-            best_seq = current_seq[:]
-
-        T *= packer.alpha
-        if progress_cb and iteration % safe_iters == 0:
-            progress_cb(T, safe_T_start, best_score / container_vol * 100)
-
-    result = ns["decode_sequence"](
-        best_seq,
-        problem.container,
-        strategy=packer.strategy,
-        algorithm_name="Simulated Annealing",
+    return OptimizerBox(
+        id=box.id,
+        length=box.length,
+        width=box.width,
+        height=box.height,
+        weight_kg=box.weight_kg,
+        fragile=box.fragile,
     )
-    result.execution_time_ms = (time.time() - t0) * 1000
-    return _to_app_placements(result), result.utilization(), result.execution_time_ms
+
+
+def _to_optimizer_container(container: Container):
+    from optimizer import Container as OptimizerContainer
+
+    return OptimizerContainer(
+        name=container.name,
+        length=container.length,
+        width=container.width,
+        height=container.height,
+    )
+
 
 __all__ = [
     "Box",
@@ -471,3 +412,246 @@ __all__ = [
     "simulated_annealing",
     "draw_box_3d",
 ]
+
+# Add to notebook_backend.py
+
+def smart_greedy_pack(boxes, container, progress_cb=None):
+    """
+    Multi-strategy greedy that tries multiple sorting strategies and returns the best.
+    """
+    strategies = [
+        ("Volume (largest first)", lambda b: b.volume),
+        ("Volume (smallest first)", lambda b: -b.volume),
+        ("Max dimension", lambda b: max(b.length, b.width, b.height)),
+        ("Min dimension (small boxes last)", lambda b: -min(b.length, b.width, b.height)),
+        ("Area (footprint)", lambda b: b.length * b.width),
+        ("Perimeter", lambda b: b.length + b.width + b.height),
+        ("Surface area", lambda b: 2*(b.length*b.width + b.length*b.height + b.width*b.height)),
+        ("Volume × Density (heavy + large)", lambda b: b.volume * b.weight_kg),
+        ("Density (heavy first)", lambda b: b.weight_kg / b.volume if b.volume > 0 else 0),
+        ("Fragile first", lambda b: (0 if b.fragile else 1, -b.volume)),
+        ("Original order", None),  # Keep original dataset order
+    ]
+    
+    best_result = None
+    best_util = 0
+    best_strategy = None
+    best_placed = None
+    
+    total = len(strategies)
+    for idx, (strategy_name, key_func) in enumerate(strategies):
+        if progress_cb:
+            progress_cb(idx, total, strategy_name)
+        
+        # Sort boxes according to strategy
+        if key_func is None:
+            sorted_boxes = boxes[:]  # Original order
+        elif key_func == (0 if b.fragile else 1, -b.volume):
+            # Handle fragile first specially
+            sorted_boxes = sorted(boxes, key=lambda b: (0 if b.fragile else 1, -b.volume))
+        else:
+            sorted_boxes = sorted(boxes, key=key_func, reverse=True)
+        
+        # Pack using greedy placement
+        sm = SpaceManager(container)
+        placed = []
+        for box in sorted_boxes:
+            space, dims = sm.find_placement(box, strategy="bottom")
+            if space and dims:
+                pb = sm.place_box(box, space, dims)
+                if pb:
+                    placed.append(pb)
+        
+        util = sm.utilization()
+        
+        if util > best_util:
+            best_util = util
+            best_result = sm
+            best_strategy = strategy_name
+            best_placed = placed
+    
+    if progress_cb:
+        progress_cb(total, total, f"Best: {best_strategy}")
+    
+    return best_placed, best_util, best_strategy
+
+
+def simulated_annealing_interactive(boxes, container, initial_sequence=None,
+                                     T_start=500.0, T_end=5.0, cooling=0.97, 
+                                     iters_per_step=6, target_pct=80.0,
+                                     progress_cb=None, user_ask_cb=None):
+    """
+    Simulated Annealing with user interaction (asks to continue at target).
+    user_ask_cb: function(current_util, pct_of_max, iteration) -> bool
+                 Returns True to continue, False to stop.
+    """
+    import math
+    import random
+    import time
+    from copy import deepcopy
+    
+    # Start with greedy if no initial sequence provided
+    if initial_sequence is None:
+        initial_sequence = sorted(boxes, key=lambda b: b.volume, reverse=True)
+    
+    current_seq = initial_sequence[:]
+    random.shuffle(current_seq)
+    
+    # Initial evaluation
+    sm = SpaceManager(container)
+    for box in current_seq:
+        space, dims = sm.find_placement(box, strategy="bottom")
+        if space and dims:
+            sm.place_box(box, space, dims)
+    
+    current_score = sm.packed_volume
+    best_seq = current_seq[:]
+    best_score = current_score
+    
+    theoretical_max = sum(b.volume for b in boxes)
+    target_volume = theoretical_max * (target_pct / 100.0)
+    target_reached = False
+    
+    T = T_start
+    step = 0
+    total_iterations = 0
+    no_improvement_count = 0
+    start_time = time.time()
+    
+    while T > T_end:
+        for _ in range(iters_per_step):
+            total_iterations += 1
+            
+            # Check if target reached
+            if not target_reached and best_score >= target_volume:
+                target_reached = True
+                current_util = best_score / container.volume * 100
+                pct_of_max = best_score / theoretical_max * 100
+                
+                if user_ask_cb:
+                    should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
+                    if not should_continue:
+                        # User wants to stop
+                        break
+                else:
+                    print(f"Target reached at iteration {total_iterations}: {current_util:.1f}%")
+            
+            # Create neighbor by swapping
+            new_seq = current_seq[:]
+            i, j = random.sample(range(len(new_seq)), 2)
+            new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
+            
+            # Evaluate new sequence
+            sm2 = SpaceManager(container)
+            for box in new_seq:
+                space, dims = sm2.find_placement(box, strategy="bottom")
+                if space and dims:
+                    sm2.place_box(box, space, dims)
+            new_score = sm2.packed_volume
+            
+            delta = new_score - current_score
+            
+            # Acceptance criterion
+            if delta > 0 or (T > 1e-10 and random.random() < math.exp(delta / T)):
+                current_seq = new_seq
+                current_score = new_score
+                no_improvement_count = 0
+            else:
+                no_improvement_count += 1
+            
+            if current_score > best_score:
+                best_score = current_score
+                best_seq = current_seq[:]
+                no_improvement_count = 0
+            
+            # Progress callback
+            if progress_cb and total_iterations % 10 == 0:
+                progress_cb(T, best_score / container.volume * 100, total_iterations)
+            
+            # Early stop if stuck
+            if no_improvement_count > 200:
+                break
+        
+        # Check if user stopped
+        if target_reached and not should_continue:
+            break
+        
+        T *= cooling
+        step += 1
+    
+    # Final packing with best sequence
+    sm_best = SpaceManager(container)
+    for box in best_seq:
+        space, dims = sm_best.find_placement(box, strategy="bottom")
+        if space and dims:
+            sm_best.place_box(box, space, dims)
+    
+    execution_time = time.time() - start_time
+    
+    return sm_best.placed_boxes, sm_best.utilization(), execution_time
+
+def validate_result(
+    placed: List[dict],
+    container: Container,
+    verbose: bool = True,) -> dict:
+    overlaps = []
+    for i in range(len(placed)):
+        for j in range(i + 1, len(placed)):
+            if _check_overlap(placed[i]["pos"], placed[i]["dim"],
+                            placed[j]["pos"], placed[j]["dim"]):
+                overlaps.append((placed[i]["id"], placed[j]["id"]))
+
+    no_overlap = len(overlaps) == 0
+
+    oob = []
+    for pb in placed:
+        x, y, z = pb["pos"]
+        l, w, h = pb["dim"]
+        if (x < 0 or y < 0 or z < 0 or
+                x + l > container.length or
+                y + w > container.width or
+                z + h > container.height):
+            oob.append(pb["id"])
+
+    in_bounds = len(oob) == 0
+
+    floating = []
+    for pb in placed:
+        x, y, z = pb["pos"]
+        l, w, _ = pb["dim"]
+        if z == 0:
+            continue
+        if not _is_supported(x, y, z, l, w, placed):
+            floating.append(pb["id"])
+
+    no_floating = len(floating) == 0
+
+    if verbose:
+        print("=" * 60)
+        print("  VALIDATION REPORT")
+        print("=" * 60)
+        print(f"  No overlaps    : {'PASS' if no_overlap else f'FAIL ({len(overlaps)} pairs)'}")
+        if not no_overlap:
+            for a, b in overlaps[:5]:
+                print(f"                   -> Box {a} <-> Box {b}")
+            if len(overlaps) > 5:
+                print(f"                   -> ... and {len(overlaps) - 5} more")
+
+        print(f"  In bounds      : {'PASS' if in_bounds else f'FAIL ({len(oob)} boxes)'}")
+        if not in_bounds:
+            print(f"                   -> IDs: {oob[:10]}")
+
+        print(f"  No floating    : {'PASS' if no_floating else f'FAIL ({len(floating)} boxes)'}")
+        if not no_floating:
+            print(f"                   -> IDs: {floating[:10]}")
+        print("=" * 60)
+
+    return {
+        "no_overlap": no_overlap,
+        "in_bounds": in_bounds,
+        "no_floating": no_floating,
+        "valid": no_overlap and in_bounds and no_floating,
+        "overlaps": overlaps,
+        "out_of_bounds": oob,
+        "floating": floating,
+    }
