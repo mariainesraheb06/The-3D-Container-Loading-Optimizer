@@ -33,6 +33,8 @@ from app_engine import (
     smart_greedy_pack,
     simulated_annealing_interactive,
     draw_box_3d,
+    trim_unfittable_boxes,
+    trim_boxes_to_capacity,
 )
 
 # ─────────────────────────────────────────────
@@ -40,33 +42,26 @@ from app_engine import (
 # ─────────────────────────────────────────────
 
 C = {
-    # Base backgrounds kept light/white
-    "bg_main": "#ffffff",
-    "bg_panel": "#f8fdf9",
-    "bg_card": "#ffffff",
-    "bg_light": "#f1faf3",
-
-    # Text
-    "fg_lavender": "#56427e",
-    "fg_muted": "#6b7280",
-    "fg_dark": "#392650",
-    "fg_white": "#ffffff",
-
-    # Main light-purple palette
-    "primary": "#ab8cf5",
+    "bg_main":      "#ffffff",
+    "bg_panel":     "#f8fdf9",
+    "bg_card":      "#ffffff",
+    "bg_light":     "#f1faf3",
+    "fg_lavender":  "#56427e",
+    "fg_muted":     "#6b7280",
+    "fg_dark":      "#392650",
+    "fg_white":     "#ffffff",
+    "primary":      "#ab8cf5",
     "primary_dark": "#8f70db",
     "primary_soft": "#d3c2fb",
-
-    # Compatibility keys used across the UI
-    "pink_hot": "#ab8cf5",
-    "pink_mid": "#bda0fa",
-    "pink_soft": "#7f5eb8",
-    "purple_dark": "#ddcffb",
-    "purple_btn": "#9b7fe6",
-    "purple_hi": "#6c4aa6",
-    "green": "#7356ad",
-    "amber": "#aa8fd3",
-    "red": "#b85c5c",
+    "pink_hot":     "#ab8cf5",
+    "pink_mid":     "#bda0fa",
+    "pink_soft":    "#7f5eb8",
+    "purple_dark":  "#ddcffb",
+    "purple_btn":   "#9b7fe6",
+    "purple_hi":    "#6c4aa6",
+    "green":        "#7356ad",
+    "amber":        "#aa8fd3",
+    "red":          "#b85c5c",
 }
 
 
@@ -183,10 +178,10 @@ class FlipBoxDialog(tk.Toplevel):
         self.configure(bg=C["bg_panel"])
         self.grab_set()
 
-        self.pb = placed_box
-        self.box_obj = box_obj
+        self.pb        = placed_box
+        self.box_obj   = box_obj
         self.container = container
-        self.on_apply = on_apply
+        self.on_apply  = on_apply
 
         tk.Label(
             self,
@@ -195,7 +190,6 @@ class FlipBoxDialog(tk.Toplevel):
             bg=C["pink_mid"], fg=C["fg_white"], pady=8,
         ).pack(fill="x")
 
-        # Info strip
         info = tk.Frame(self, bg=C["bg_card"], pady=6, padx=12)
         info.pack(fill="x")
         cur_l, cur_w, cur_h = placed_box["dim"]
@@ -208,7 +202,6 @@ class FlipBoxDialog(tk.Toplevel):
             tk.Label(info, text=text, bg=C["bg_card"],
                      fg=C["fg_lavender"], font=("Helvetica", 9)).pack(anchor="w")
 
-        # Orientation chooser
         ori_sec = tk.LabelFrame(
             self, text="  Choose orientation  ",
             bg=C["bg_panel"], fg=C["pink_soft"],
@@ -217,7 +210,7 @@ class FlipBoxDialog(tk.Toplevel):
         ori_sec.pack(fill="x", padx=12, pady=(10, 0))
 
         self._ori_var = tk.StringVar()
-        oris = box_obj.get_orientations()
+        oris   = box_obj.get_orientations()
         labels = box_obj.orientation_labels()
         cur_str = f"{cur_l}×{cur_w}×{cur_h} cm"
         for lbl, ori in zip(labels, oris):
@@ -231,7 +224,6 @@ class FlipBoxDialog(tk.Toplevel):
         self._ori_var.set(cur_str)
         self._oris = dict(zip(labels, oris))
 
-        # Position override
         pos_sec = tk.LabelFrame(
             self, text="  Override position (cm, optional)  ",
             bg=C["bg_panel"], fg=C["pink_soft"],
@@ -307,13 +299,13 @@ class App(tk.Tk):
         self.configure(bg=C["bg_main"])
         self.resizable(True, True)
 
-        self.boxes: list = []
-        self.container: Container = PRESET_CONTAINERS[0]
-        self.last_result  = None
-        self.last_util    = 0.0
-        self.last_algo    = ""
-        self.selected_box_id = None
-        self._forced_orientations: dict = {}
+        self.boxes: list                  = []
+        self.container: Container         = PRESET_CONTAINERS[0]
+        self.last_result                  = None
+        self.last_util                    = 0.0
+        self.last_algo                    = ""
+        self.selected_box_id              = None
+        self._forced_orientations: dict   = {}
 
         self._apply_ttk_style()
         self._build_ui()
@@ -323,16 +315,16 @@ class App(tk.Tk):
     def _apply_ttk_style(self):
         style = ttk.Style(self)
         style.theme_use("clam")
-        style.configure("TNotebook",          background=C["bg_panel"], borderwidth=0)
-        style.configure("TNotebook.Tab",       background=C["bg_card"],
+        style.configure("TNotebook",        background=C["bg_panel"], borderwidth=0)
+        style.configure("TNotebook.Tab",    background=C["bg_card"],
                         foreground=C["fg_lavender"], padding=[12, 5],
                         font=("Helvetica", 9, "bold"))
         style.map("TNotebook.Tab",
                   background=[("selected", C["pink_hot"])],
                   foreground=[("selected", C["fg_white"])])
-        style.configure("TProgressbar", troughcolor=C["bg_card"],
+        style.configure("TProgressbar",     troughcolor=C["bg_card"],
                         background=C["pink_hot"], borderwidth=0)
-        style.configure("Treeview",       background=C["bg_card"],
+        style.configure("Treeview",         background=C["bg_card"],
                         foreground=C["fg_lavender"],
                         fieldbackground=C["bg_card"], rowheight=22)
         style.configure("Treeview.Heading", background=C["purple_dark"],
@@ -342,7 +334,6 @@ class App(tk.Tk):
     # ── UI CONSTRUCTION ────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # ── Header ──────────────────────────────────────────────
         hdr = tk.Frame(self, bg=C["purple_dark"], pady=12)
         hdr.pack(fill="x")
         tk.Label(
@@ -355,7 +346,6 @@ class App(tk.Tk):
             font=("Helvetica", 9), fg=C["purple_hi"], bg=C["purple_dark"],
         ).pack()
 
-        # ── Main area ────────────────────────────────────────────
         main = tk.Frame(self, bg=C["bg_main"])
         main.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -388,9 +378,10 @@ class App(tk.Tk):
             parent, text=f"  {title}  ",
             font=("Helvetica", 9, "bold"),
             bg=C["bg_panel"], fg=C["pink_soft"],
-            padx=8, pady=6, relief="groove", bd=1,
+            padx=16, pady=8,                    # ← inner breathing room
+            relief="groove", bd=1,
         )
-        f.pack(fill="x", padx=8, pady=(8, 0))
+        f.pack(fill="x", padx=12, pady=(8, 0))  # ← outer margin
         return f
 
     def _btn(self, parent, text, command, bg=None, **kw):
@@ -405,56 +396,64 @@ class App(tk.Tk):
     # ── TAB 1: Container ──────────────────────────────────────────────────────
 
     def _build_container_tab(self, parent):
-    sec = self._section(parent, "Preset containers  (click to edit)")
-    self._container_var = tk.StringVar(value=PRESET_CONTAINERS[0].name)
-    self._preset_rows = []
+        sec = self._section(parent, "Preset containers  (click to edit)")
+        self._container_var = tk.StringVar(value=PRESET_CONTAINERS[0].name)
+        self._preset_rows = []
 
-    for c in PRESET_CONTAINERS:
-        row = tk.Frame(sec, bg=C["bg_panel"])
-        row.pack(fill="x", pady=2, padx=12)  # ← padx=12 keeps it off the edge
-        rb_label = tk.StringVar(value=str(c))
-        rb = tk.Radiobutton(
-            row, textvariable=rb_label,
-            variable=self._container_var, value=c.name,
-            bg=C["bg_panel"], fg=C["fg_lavender"],
-            selectcolor=C["bg_card"], font=("Helvetica", 9),
+        for c in PRESET_CONTAINERS:
+            row = tk.Frame(sec, bg=C["bg_panel"])
+            row.pack(fill="x", pady=2, padx=(10,0))
+            rb_label = tk.StringVar(value=str(c))
+            rb = tk.Radiobutton(
+            row,
+            textvariable=rb_label,
+            variable=self._container_var,
+            value=c.name,
+            bg=C["bg_panel"],
+            fg=C["fg_lavender"],
+            selectcolor=C["bg_card"],
+            font=("Helvetica", 9),
             command=self._on_preset_select,
+            wraplength=250,   # wrap text after 250 pixels
+            justify="left"
+            )
+            rb.pack(side="left")
+            tk.Button(
+                row, text="✏", font=("Helvetica", 8),
+                bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
+                cursor="hand2", padx=4,
+                command=lambda cont=c, lv=rb_label: self._edit_preset(cont, lv),
+            ).pack(side="right", padx=2)
+            self._preset_rows.append((c, rb_label))
+
+        sec2 = self._section(parent, "Custom container (cm)")
+        grid = tk.Frame(sec2, bg=C["bg_panel"])
+        grid.pack(fill="x", pady=(4, 0))
+        self._custom_entries: dict = {}
+        for i, (lbl, default) in enumerate([
+            ("Name", "My Container"), ("Length", "520"),
+            ("Width", "210"),         ("Height", "210"),
+        ]):
+            tk.Label(grid, text=lbl + ":", bg=C["bg_panel"],
+                     fg=C["fg_lavender"], font=("Helvetica", 9),
+                     width=8, anchor="w").grid(row=i, column=0, pady=3, sticky="w")
+            e = tk.Entry(grid, font=("Helvetica", 9), width=16,
+                         bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
+            e.insert(0, default)
+            e.grid(row=i, column=1, padx=6, pady=3)
+            self._custom_entries[lbl] = e
+        self._btn(sec2, "Use Custom Container",
+                  self._apply_custom_container,
+                  bg=C["purple_btn"]).pack(pady=(8, 2), anchor="w")
+
+        self._container_info = tk.Label(
+            parent, text="", font=("Helvetica", 9),
+            bg=C["bg_card"], fg=C["purple_hi"],
+            relief="flat", pady=6, wraplength=400,
         )
-        rb.pack(side="left", padx=(4, 0))  # ← small left nudge for the radio button itself
-        tk.Button(
-            row, text="✏", font=("Helvetica", 8),
-            bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
-            cursor="hand2", padx=4,
-            command=lambda cont=c, lv=rb_label: self._edit_preset(cont, lv),
-        ).pack(side="right", padx=2)
-        self._preset_rows.append((c, rb_label))
+        self._container_info.pack(fill="x", padx=12, pady=(6, 8))
+        self._update_container_info()
 
-    sec2 = self._section(parent, "Custom container (cm)")
-    grid = tk.Frame(sec2, bg=C["bg_panel"])
-    grid.pack(fill="x", padx=12, pady=(4, 0))  # ← padx=12 matches section above
-    self._custom_entries: dict = {}
-    for i, (lbl, default) in enumerate([
-        ("Name", "My Container"), ("Length", "520"),
-        ("Width", "210"), ("Height", "210"),
-    ]):
-        tk.Label(grid, text=lbl + ":", bg=C["bg_panel"],
-                 fg=C["fg_lavender"], font=("Helvetica", 9),
-                 width=8, anchor="w").grid(row=i, column=0, pady=3, sticky="w")  # ← pady 2→3
-        e = tk.Entry(grid, font=("Helvetica", 9), width=16,
-                     bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
-        e.insert(0, default)
-        e.grid(row=i, column=1, padx=6, pady=3)  # ← pady 2→3
-        self._custom_entries[lbl] = e
-    self._btn(sec2, "Use Custom Container",
-              self._apply_custom_container, bg=C["purple_btn"]).pack(pady=8, padx=12, anchor="w")  # ← anchor left + padx
-
-    self._container_info = tk.Label(
-        parent, text="", font=("Helvetica", 9),
-        bg=C["bg_card"], fg=C["purple_hi"],
-        relief="flat", pady=6, wraplength=400,
-    )
-    self._container_info.pack(fill="x", padx=12, pady=(4, 8))  # ← padx 8→12, split pady
-    self._update_container_info()
     def _edit_preset(self, container, label_var):
         def on_save():
             label_var.set(str(container))
@@ -466,17 +465,16 @@ class App(tk.Tk):
         name = self._container_var.get()
         for c in PRESET_CONTAINERS:
             if c.name == name:
-                self.container = c; break
+                self.container = c
+                break
         self._update_container_info()
-        from app_engine import trim_unfittable_boxes
-        original_count = len(self.boxes)
-        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
-        trimmed_count = original_count - len(self.boxes)
-        
+        original_count  = len(self.boxes)
+        self.boxes       = trim_unfittable_boxes(self.boxes, self.container)
+        trimmed_count   = original_count - len(self.boxes)
         if trimmed_count > 0:
             messagebox.showwarning(
                 "Boxes Trimmed",
-                f" {trimmed_count} box(es) were removed because they cannot fit in the new container.\n\n"
+                f"{trimmed_count} box(es) removed — cannot fit in the new container.\n\n"
                 f"Remaining boxes: {len(self.boxes)}"
             )
             self._refresh_box_tree()
@@ -497,28 +495,22 @@ class App(tk.Tk):
         if errors:
             messagebox.showerror("Validation Error", "\n".join(errors))
             return
-        
         self.container = Container(name, dims["Length"], dims["Width"], dims["Height"])
         self._container_var.set("__custom__")
         self._update_container_info()
-        
-        # Trim boxes when container changes
-        from app_engine import trim_unfittable_boxes
         original_count = len(self.boxes)
-        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
-        trimmed_count = original_count - len(self.boxes)
-        
+        self.boxes      = trim_unfittable_boxes(self.boxes, self.container)
+        trimmed_count  = original_count - len(self.boxes)
         if trimmed_count > 0:
             messagebox.showwarning(
                 "Boxes Trimmed",
-                f" {trimmed_count} box(es) were removed because they cannot fit in the custom container.\n\n"
+                f"{trimmed_count} box(es) removed — cannot fit in the custom container.\n\n"
                 f"Container: {self.container.length}×{self.container.width}×{self.container.height} cm\n\n"
                 f"Remaining boxes: {len(self.boxes)}"
             )
             self._refresh_box_tree()
-        
-        messagebox.showinfo("Container Set", f" Custom container set:\n{self.container}")
-        
+        messagebox.showinfo("Container Set", f"Custom container set:\n{self.container}")
+
     def _update_container_info(self):
         c = self.container
         self._container_info.config(
@@ -531,12 +523,13 @@ class App(tk.Tk):
 
     def _build_boxes_tab(self, parent):
         sec = self._section(parent, "Load from CSV")
-        self._btn(sec, "Load CSV file", self._load_csv, bg=C["purple_btn"]).pack(
-            fill="x", pady=2)
+        self._btn(sec, "Load CSV file", self._load_csv,
+                  bg=C["purple_btn"]).pack(fill="x", pady=2)
 
         sec2 = self._section(parent, "Add a box manually")
         self._box_entries: dict = {}
-        row_f = tk.Frame(sec2, bg=C["bg_panel"]); row_f.pack(fill="x")
+        row_f = tk.Frame(sec2, bg=C["bg_panel"])
+        row_f.pack(fill="x")
         for i, lbl in enumerate(("Length", "Width", "Height", "Weight(kg)")):
             tk.Label(row_f, text=lbl, bg=C["bg_panel"], fg=C["fg_lavender"],
                      font=("Helvetica", 8)).grid(row=0, column=i*2, padx=(4, 0))
@@ -544,14 +537,16 @@ class App(tk.Tk):
                          bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
             e.grid(row=0, column=i*2+1, padx=(2, 4))
             self._box_entries[lbl] = e
-        row2 = tk.Frame(sec2, bg=C["bg_panel"]); row2.pack(fill="x", pady=4)
+        row2 = tk.Frame(sec2, bg=C["bg_panel"])
+        row2.pack(fill="x", pady=4)
         self._fragile_var = tk.BooleanVar()
         tk.Checkbutton(
             row2, text="Fragile", variable=self._fragile_var,
             bg=C["bg_panel"], fg=C["fg_lavender"],
             selectcolor=C["bg_card"], font=("Helvetica", 9),
         ).pack(side="left")
-        self._btn(row2, "Add Box", self._add_box_manual, bg=C["pink_mid"]).pack(side="right")
+        self._btn(row2, "Add Box", self._add_box_manual,
+                  bg=C["pink_mid"]).pack(side="right")
 
         sec3 = self._section(parent, "Box list")
         cols = ("id", "L", "W", "H", "kg", "fragile")
@@ -564,9 +559,10 @@ class App(tk.Tk):
         self._box_tree.pack(side="left", fill="both", expand=True)
         sc.pack(side="right", fill="y")
 
-        row3 = tk.Frame(parent, bg=C["bg_panel"]); row3.pack(fill="x", padx=8, pady=4)
-        self._btn(row3, "🗑 Remove", self._remove_box, bg=C["red"]).pack(side="left")
-        self._btn(row3, "Clear All", self._clear_boxes, bg=C["purple_dark"]).pack(
+        row3 = tk.Frame(parent, bg=C["bg_panel"])
+        row3.pack(fill="x", padx=8, pady=4)
+        self._btn(row3, "🗑 Remove",  self._remove_box,  bg=C["red"]).pack(side="left")
+        self._btn(row3, "Clear All", self._clear_boxes,  bg=C["purple_dark"]).pack(
             side="left", padx=6)
         self._boxes_label = tk.Label(
             parent, text="No boxes loaded.",
@@ -578,33 +574,29 @@ class App(tk.Tk):
         path = filedialog.askopenfilename(
             title="Open boxes CSV",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
-        if not path: 
+        if not path:
             return
         try:
             df = pd.read_csv(path)
             df["fragile"] = (df["fragile"].astype(str).str.lower()
-                            .map({"true": True, "false": False, "1": True, "0": False})
-                            .fillna(False))
+                             .map({"true": True, "false": False, "1": True, "0": False})
+                             .fillna(False))
             self.boxes = [
                 Box(id=int(r["id"]), length=float(r["length"]),
                     width=float(r["width"]), height=float(r["height"]),
                     weight_kg=float(r["weight_kg"]), fragile=bool(r["fragile"]))
                 for _, r in df.iterrows()
             ]
-            
-            from app_engine import trim_unfittable_boxes, trim_boxes_to_capacity
             original_count = len(self.boxes)
-            self.boxes = trim_unfittable_boxes(self.boxes, self.container)
-            dim_removed = original_count - len(self.boxes)
+            self.boxes      = trim_unfittable_boxes(self.boxes, self.container)
+            dim_removed    = original_count - len(self.boxes)
 
-            # Check volume
-            total_volume = sum(b.volume for b in self.boxes)
+            total_volume     = sum(b.volume for b in self.boxes)
             container_volume = self.container.volume
 
             if total_volume > container_volume:
                 self.boxes, utilization = trim_boxes_to_capacity(self.boxes, self.container)
                 self._refresh_box_tree()
-                
                 msg = f"Loaded {len(self.boxes)} boxes"
                 if dim_removed > 0:
                     msg += f"\nRemoved {dim_removed} boxes that cannot fit dimensionally"
@@ -625,12 +617,14 @@ class App(tk.Tk):
             w  = float(self._box_entries["Width"].get())
             h  = float(self._box_entries["Height"].get())
             kg = float(self._box_entries["Weight(kg)"].get())
-            if l <= 0 or w <= 0 or h <= 0 or kg < 0: raise ValueError
+            if l <= 0 or w <= 0 or h <= 0 or kg < 0:
+                raise ValueError
             new_id = max((b.id for b in self.boxes), default=0) + 1
             self.boxes.append(Box(id=new_id, length=l, width=w, height=h,
                                   weight_kg=kg, fragile=self._fragile_var.get()))
             self._refresh_box_tree()
-            for e in self._box_entries.values(): e.delete(0, "end")
+            for e in self._box_entries.values():
+                e.delete(0, "end")
         except ValueError:
             messagebox.showerror("Invalid Input", "Enter valid positive numbers.")
 
@@ -642,7 +636,8 @@ class App(tk.Tk):
 
     def _clear_boxes(self):
         if messagebox.askyesno("Confirm", "Clear all boxes?"):
-            self.boxes = []; self._refresh_box_tree()
+            self.boxes = []
+            self._refresh_box_tree()
 
     def _refresh_box_tree(self):
         self._box_tree.delete(*self._box_tree.get_children())
@@ -663,7 +658,8 @@ class App(tk.Tk):
                  bg=C["bg_panel"], fg=C["fg_lavender"],
                  font=("Helvetica", 9)).pack(anchor="w")
 
-        bf = tk.Frame(sec, bg=C["bg_panel"]); bf.pack(fill="x", pady=6)
+        bf = tk.Frame(sec, bg=C["bg_panel"])
+        bf.pack(fill="x", pady=6)
         self._btn_smart_greedy = tk.Button(
             bf, text="▶ Smart Greedy", font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
@@ -695,12 +691,11 @@ class App(tk.Tk):
 
         sec2 = self._section(parent, "Step 2 — Improve with Simulated Annealing")
         tk.Label(sec2, text="Apply SA to refine the baseline result:",
-                bg=C["bg_panel"], fg=C["fg_lavender"],
-                font=("Helvetica", 9)).pack(anchor="w")
-        
+                 bg=C["bg_panel"], fg=C["fg_lavender"],
+                 font=("Helvetica", 9)).pack(anchor="w")
+
         btn_frame = tk.Frame(sec2, bg=C["bg_panel"])
         btn_frame.pack(fill="x", pady=6)
-        
         self._btn_sa = tk.Button(
             btn_frame, text=" Improve with SA",
             font=("Helvetica", 10, "bold"),
@@ -708,7 +703,7 @@ class App(tk.Tk):
             padx=10, pady=8, cursor="hand2",
             state="disabled", command=self._run_sa)
         self._btn_sa.pack(side="left", padx=(0, 8))
-        
+
         self._btn_sa_interactive = tk.Button(
             btn_frame, text="  SA with User Input",
             font=("Helvetica", 10, "bold"),
@@ -716,7 +711,7 @@ class App(tk.Tk):
             padx=10, pady=8, cursor="hand2",
             state="disabled", command=self._run_sa_interactive)
         self._btn_sa_interactive.pack(side="left")
-        
+
         self._sa_label = tk.Label(
             sec2, text="", font=("Helvetica", 10),
             bg=C["bg_card"], fg=C["amber"],
@@ -726,17 +721,21 @@ class App(tk.Tk):
         sec3 = self._section(parent, "SA Parameters")
         self._sa_params: dict = {}
         for lbl, default in [
-            ("Start Temp", "150"), ("End Temp", "5"),
-            ("Cooling Rate", "0.97"), ("Iters/Step", "6"),
-            ("Target %", "80"),
+            ("Start Temp",  "150"),
+            ("End Temp",    "5"),
+            ("Cooling Rate","0.97"),
+            ("Iters/Step",  "6"),
+            ("Target %",    "80"),
         ]:
-            row = tk.Frame(sec3, bg=C["bg_panel"]); row.pack(fill="x", pady=1)
+            row = tk.Frame(sec3, bg=C["bg_panel"])
+            row.pack(fill="x", pady=1)
             tk.Label(row, text=lbl + ":", bg=C["bg_panel"],
                      fg=C["fg_lavender"], font=("Helvetica", 9),
                      width=14, anchor="w").pack(side="left")
             e = tk.Entry(row, width=10, font=("Helvetica", 9),
                          bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
-            e.insert(0, default); e.pack(side="left", padx=4)
+            e.insert(0, default)
+            e.pack(side="left", padx=4)
             self._sa_params[lbl] = e
 
     # ── TAB 4: Edit Placed Boxes ──────────────────────────────────────────────
@@ -765,7 +764,8 @@ class App(tk.Tk):
         sc2.pack(side="right", fill="y")
         self._placed_tree.bind("<<TreeviewSelect>>", self._on_placed_select)
 
-        row = tk.Frame(parent, bg=C["bg_panel"]); row.pack(fill="x", padx=8, pady=6)
+        row = tk.Frame(parent, bg=C["bg_panel"])
+        row.pack(fill="x", padx=8, pady=6)
         self._btn_flip = tk.Button(
             row, text="✏  Flip / Reposition Selected Box",
             font=("Helvetica", 9, "bold"),
@@ -781,9 +781,11 @@ class App(tk.Tk):
     def _on_placed_select(self, event):
         sel = self._placed_tree.selection()
         if not sel:
-            self._btn_flip.config(state="disabled"); return
-        vals = self._placed_tree.item(sel[0])["values"]
-        box_id, is_fragile = vals[0], vals[8] == "Yes"
+            self._btn_flip.config(state="disabled")
+            return
+        vals       = self._placed_tree.item(sel[0])["values"]
+        box_id     = vals[0]
+        is_fragile = vals[8] == "Yes"
         self.selected_box_id = box_id
         if self.last_result:
             self._render_3d(self.last_result,
@@ -794,19 +796,24 @@ class App(tk.Tk):
             self._edit_msg.config(text="Fragile boxes cannot be modified.")
         else:
             self._btn_flip.config(state="normal")
-            self._edit_msg.config(text=f"Box #{box_id} selected. Click Flip/Reposition to edit.")
+            self._edit_msg.config(
+                text=f"Box #{box_id} selected. Click Flip/Reposition to edit.")
 
     def _flip_box(self):
-        if not self.selected_box_id or not self.last_result: return
-        pb = next((p for p in self.last_result if p["id"] == self.selected_box_id), None)
-        box_obj = next((b for b in self.boxes if b.id == self.selected_box_id), None)
-        if not pb or not box_obj: return
+        if not self.selected_box_id or not self.last_result:
+            return
+        pb      = next((p for p in self.last_result if p["id"] == self.selected_box_id), None)
+        box_obj = next((b for b in self.boxes      if b.id   == self.selected_box_id), None)
+        if not pb or not box_obj:
+            return
 
         def on_apply(new_ori, new_pos):
             self._forced_orientations[self.selected_box_id] = new_ori
             seq = [b for b in self.boxes if b.id in {p["id"] for p in self.last_result}]
-            placed, util = pack_sequence_with_forced(seq, self.container, self._forced_orientations)
-            self.last_result = placed; self.last_util = util
+            placed, util = pack_sequence_with_forced(
+                seq, self.container, self._forced_orientations)
+            self.last_result = placed
+            self.last_util   = util
             self._refresh_placed_tree()
             self._render_3d(placed, f"{self.last_algo} (edited) — {util:.1f}%")
             self._edit_msg.config(
@@ -816,9 +823,11 @@ class App(tk.Tk):
 
     def _refresh_placed_tree(self):
         self._placed_tree.delete(*self._placed_tree.get_children())
-        if not self.last_result: return
+        if not self.last_result:
+            return
         for p in self.last_result:
-            x, y, z = p["pos"];  l, w, h = p["dim"]
+            x, y, z = p["pos"]
+            l, w, h = p["dim"]
             self._placed_tree.insert("", "end", values=(
                 p["id"], round(x, 1), round(y, 1), round(z, 1),
                 l, w, h, p["weight"], "Yes" if p["fragile"] else "No"))
@@ -826,16 +835,18 @@ class App(tk.Tk):
     # ── RIGHT PANEL: 3-D Visualisation ────────────────────────────────────────
 
     def _build_right(self, parent):
-        top_row = tk.Frame(parent, bg=C["bg_card"]); top_row.pack(fill="x", padx=8, pady=(8, 0))
+        top_row = tk.Frame(parent, bg=C["bg_card"])
+        top_row.pack(fill="x", padx=8, pady=(8, 0))
         tk.Label(
             top_row, text="3D Packing Visualization",
             font=("Helvetica", 12, "bold"),
             bg=C["bg_card"], fg=C["pink_soft"],
         ).pack(side="left")
 
-        angle_frame = tk.Frame(top_row, bg=C["bg_card"]); angle_frame.pack(side="right")
+        angle_frame = tk.Frame(top_row, bg=C["bg_card"])
+        angle_frame.pack(side="right")
         for label, elev, azim in [("Front", 0, 0), ("Side", 0, 90),
-                                   ("Top", 90, 0), ("ISO", 25, 45)]:
+                                   ("Top", 90, 0),  ("ISO", 25, 45)]:
             tk.Button(
                 angle_frame, text=label, font=("Helvetica", 8),
                 bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
@@ -843,21 +854,20 @@ class App(tk.Tk):
                 command=lambda e=elev, a=azim: self._set_view_angle(e, a),
             ).pack(side="left", padx=2)
 
-        # Matplotlib figure with a light card background
-        self._fig = plt.Figure(figsize=(7.5, 6), dpi=90,
-                               facecolor=C["bg_card"])
-        self._ax = self._fig.add_subplot(111, projection="3d")
+        self._fig = plt.Figure(figsize=(7.5, 6), dpi=90, facecolor=C["bg_card"])
+        self._ax  = self._fig.add_subplot(111, projection="3d")
         self._ax.set_facecolor(C["bg_card"])
         self._ax.tick_params(colors=C["fg_lavender"], labelsize=7)
         for spine in self._ax.spines.values():
             spine.set_edgecolor(C["purple_hi"])
         self._ax.set_title("Run an algorithm to see the result",
-                           fontsize=10, color=C["purple_hi"])
+                            fontsize=10, color=C["purple_hi"])
 
         self._canvas = FigureCanvasTkAgg(self._fig, master=parent)
         self._canvas.get_tk_widget().pack(fill="both", expand=True, padx=8)
 
-        toolbar_frame = tk.Frame(parent, bg=C["bg_card"]); toolbar_frame.pack(fill="x", padx=8)
+        toolbar_frame = tk.Frame(parent, bg=C["bg_card"])
+        toolbar_frame.pack(fill="x", padx=8)
         self._toolbar = NavigationToolbar2Tk(self._canvas, toolbar_frame)
         self._toolbar.update()
 
@@ -882,7 +892,7 @@ class App(tk.Tk):
         self._canvas.draw()
 
     def _on_scroll(self, event):
-        ax = self._ax
+        ax     = self._ax
         factor = 0.9 if event.button == "up" else 1.1
         for get_lim, set_lim in [
             (ax.get_xlim, ax.set_xlim),
@@ -890,12 +900,12 @@ class App(tk.Tk):
             (ax.get_zlim, ax.set_zlim),
         ]:
             lo, hi = get_lim()
-            mid = (lo + hi) / 2
-            half = (hi - lo) / 2 * factor
+            mid    = (lo + hi) / 2
+            half   = (hi - lo) / 2 * factor
             set_lim(mid - half, mid + half)
         self._canvas.draw_idle()
 
-    # ── RUN / CALLBACKS ───────────────────────────────────────────────────────
+    # ── VALIDATION ────────────────────────────────────────────────────────────
 
     def _validate_ready(self) -> bool:
         if not self.boxes:
@@ -904,48 +914,45 @@ class App(tk.Tk):
         if not self.container:
             messagebox.showwarning("No Container", "Please select a container first.")
             return False
-        
-        from app_engine import trim_unfittable_boxes, trim_boxes_to_capacity
-        
-        # removing dimensionally unfittable boxes
+
         original_count = len(self.boxes)
-        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
-        dim_removed = original_count - len(self.boxes)
-        
+        self.boxes      = trim_unfittable_boxes(self.boxes, self.container)
+        dim_removed    = original_count - len(self.boxes)
         if dim_removed > 0:
             print(f"Removed {dim_removed} dimensionally unfittable boxes")
-        
-        # trimming by volume 
-        total_volume = sum(b.volume for b in self.boxes)
+
+        total_volume     = sum(b.volume for b in self.boxes)
         container_volume = self.container.volume
-        
         if total_volume > container_volume:
             response = messagebox.askyesno(
                 "Volume Exceeds Capacity",
-                f"Total box volume ({total_volume:,.0f} cm³) exceeds container capacity ({container_volume:,.0f} cm³).\n\n"
-                f"Trim boxes to fit? (Yes = keep boxes in current order until fit, No = keep all boxes)"
+                f"Total box volume ({total_volume:,.0f} cm³) exceeds container "
+                f"capacity ({container_volume:,.0f} cm³).\n\n"
+                f"Trim boxes to fit? (Yes = keep in order until full, No = keep all)"
             )
-            
             if response:
-                # keep boxes in order until capacity
-                self.boxes, utilization = trim_boxes_to_capacity(self.boxes, self.container)
+                self.boxes, utilization = trim_boxes_to_capacity(
+                    self.boxes, self.container)
                 self._refresh_box_tree()
-                
                 messagebox.showinfo(
                     "Boxes Trimmed",
                     f"Trimmed to {len(self.boxes)} boxes\n"
-                    f"Volume: {sum(b.volume for b in self.boxes):,.0f} / {container_volume:,.0f} cm³\n"
+                    f"Volume: {sum(b.volume for b in self.boxes):,.0f} / "
+                    f"{container_volume:,.0f} cm³\n"
                     f"Utilization: {utilization:.1f}%"
                 )
-        
+
         if not self.boxes:
-            messagebox.showwarning("No Boxes", "No boxes remain after trimming. Please load different boxes.")
+            messagebox.showwarning(
+                "No Boxes", "No boxes remain after trimming. Please load different boxes.")
             return False
-        
         return True
 
+    # ── RUN / CALLBACKS ───────────────────────────────────────────────────────
+
     def _run_algo(self, algo: str):
-        if not self._validate_ready(): return
+        if not self._validate_ready():
+            return
         self._progress.start()
         for btn in (self._btn_greedy, self._btn_ga, self._btn_sa):
             btn.config(state="disabled")
@@ -972,68 +979,67 @@ class App(tk.Tk):
 
     def _on_algo_done(self, placed, util, name, rt):
         self._progress.stop()
-        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa, self._btn_sa_interactive):
+        for btn in (self._btn_greedy, self._btn_ga,
+                    self._btn_sa, self._btn_sa_interactive):
             btn.config(state="normal")
         self._result_label.config(
             text=f" {name} done!\n"
-                f"Placed: {len(placed)}/{len(self.boxes)}  |  "
-                f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s")
+                 f"Placed: {len(placed)}/{len(self.boxes)}  |  "
+                 f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s")
         self.last_result = placed
-        self.last_util = util
-        self.last_algo = name
+        self.last_util   = util
+        self.last_algo   = name
         self._render_3d(placed, f"{name} — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
-# ──── Smart Greedy ─────────────────────────────────────────
     def _run_smart_greedy(self):
-        """Run Smart Greedy with multiple strategies."""
         if not self._validate_ready():
             return
-        
         self._progress.start()
-        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa, self._btn_smart_greedy):
+        for btn in (self._btn_greedy, self._btn_ga,
+                    self._btn_sa, self._btn_smart_greedy):
             btn.config(state="disabled")
-        self._result_label.config(text="Smart Greedy running (trying multiple strategies)...")
+        self._result_label.config(
+            text="Smart Greedy running (trying multiple strategies)...")
         self._forced_orientations = {}
-        
+
         def task():
             t0 = time.time()
-            
+
             def prog(current, total, msg):
                 self.after(0, lambda: self._result_label.config(
                     text=f"Smart Greedy: {msg} ({current+1}/{total})"))
-            
+
             placed, util, strategy = smart_greedy_pack(
-                self.boxes, self.container, progress_cb=prog
-            )
+                self.boxes, self.container, progress_cb=prog)
             rt = time.time() - t0
-            
-            self.after(0, lambda: self._on_smart_greedy_done(placed, util, strategy, rt))
-        
+            self.after(0, lambda: self._on_smart_greedy_done(
+                placed, util, strategy, rt))
+
         threading.Thread(target=task, daemon=True).start()
 
     def _on_smart_greedy_done(self, placed, util, strategy, rt):
         self._progress.stop()
-        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa, self._btn_smart_greedy, self._btn_sa_interactive):
+        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa,
+                    self._btn_smart_greedy, self._btn_sa_interactive):
             btn.config(state="normal")
         self._result_label.config(
             text=f"Smart Greedy ({strategy}) done!\n"
                  f"Placed: {len(placed)}/{len(self.boxes)}  |  "
                  f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s")
         self.last_result = placed
-        self.last_util = util
-        self.last_algo = f"Smart Greedy ({strategy})"
+        self.last_util   = util
+        self.last_algo   = f"Smart Greedy ({strategy})"
         self._render_3d(placed, f"Smart Greedy ({strategy}) — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
-    # ── SIMULATED ANNEALING (REGULAR) ─────────────────────────────────────────
+    # ── SIMULATED ANNEALING ───────────────────────────────────────────────────
 
     def _run_sa(self):
-        """Run regular Simulated Annealing (non-interactive)."""
         if not self.last_result:
-            messagebox.showwarning("No Baseline", "Run Greedy, Smart Greedy, or GA first.")
+            messagebox.showwarning("No Baseline",
+                                   "Run Greedy, Smart Greedy, or GA first.")
             return
-        
         try:
             T_start = float(self._sa_params["Start Temp"].get())
             T_end   = float(self._sa_params["End Temp"].get())
@@ -1053,10 +1059,11 @@ class App(tk.Tk):
 
         def task():
             t0 = time.time()
+
             def prog(T, T0, best):
                 self.after(0, lambda: self._sa_label.config(
                     text=f"SA: T={T:.2f}  best={best:.2f}%"))
-            
+
             placed, util, _ = simulated_annealing(
                 self.boxes, self.container,
                 initial_sequence=init_seq,
@@ -1075,18 +1082,16 @@ class App(tk.Tk):
         self._sa_label.config(
             text=f" SA done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
         self.last_result = placed
-        self.last_util = util
-        self.last_algo = f"SA Improved"
+        self.last_util   = util
+        self.last_algo   = "SA Improved"
         self._render_3d(placed, f"SA Improved — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
-    # ── SIMULATED ANNEALING (INTERACTIVE) ─────────────────────────────────────
     def _run_sa_interactive(self):
-        """Run Simulated Annealing with user interaction (asks to continue)."""
         if not self.last_result:
-            messagebox.showwarning("No Baseline", "Run Greedy, Smart Greedy, or GA first.")
+            messagebox.showwarning("No Baseline",
+                                   "Run Greedy, Smart Greedy, or GA first.")
             return
-        
         try:
             T_start = float(self._sa_params["Start Temp"].get())
             T_end   = float(self._sa_params["End Temp"].get())
@@ -1096,46 +1101,43 @@ class App(tk.Tk):
         except ValueError:
             messagebox.showerror("Invalid Params", "Check SA parameter values.")
             return
-        
+
         self._progress.start()
         self._btn_sa.config(state="disabled")
-        self._btn_sa_interactive.config(state="disabled")
-        self._btn_sa_interactive.config(text="SA Running...")
+        self._btn_sa_interactive.config(state="disabled", text="SA Running...")
         self._sa_label.config(text="SA Interactive running...")
-        
-        # Get initial sequence from last result
+
         last_ids = [p["id"] for p in self.last_result]
         init_seq = sorted(
             self.boxes,
             key=lambda b: last_ids.index(b.id) if b.id in last_ids else 999)
-    
+
         def user_ask_cb(current_util, pct_of_max, iteration):
-            """Ask user via dialog whether to continue."""
             response = [None]
-            
+
             def ask():
                 response[0] = messagebox.askyesno(
                     "Target Reached!",
-                    f"Reached {pct_of_max:.1f}% of theoretical max at iteration {iteration}!\n"
+                    f"Reached {pct_of_max:.1f}% of theoretical max "
+                    f"at iteration {iteration}!\n"
                     f"Current utilization: {current_util:.1f}%\n\n"
                     f"Continue searching for better solution?",
                     parent=self
                 )
-            
+
             self.after(0, ask)
-            
             while response[0] is None:
                 self.update()
                 time.sleep(0.1)
             return response[0]
-    
+
         def task():
             t0 = time.time()
-            
+
             def prog(T, best, iteration):
                 self.after(0, lambda: self._sa_label.config(
                     text=f"SA: T={T:.2f}  iter={iteration}  best={best:.1f}%"))
-            
+
             try:
                 placed, util, _ = simulated_annealing_interactive(
                     self.boxes, self.container,
@@ -1144,37 +1146,35 @@ class App(tk.Tk):
                     cooling=cooling, iters_per_step=iters,
                     target_pct=target,
                     progress_cb=prog,
-                    user_ask_cb=user_ask_cb
-                )
+                    user_ask_cb=user_ask_cb)
                 rt = time.time() - t0
                 self.after(0, lambda: self._on_sa_interactive_done(placed, util, rt))
             except Exception as e:
                 self.after(0, lambda: self._on_sa_interactive_error(str(e)))
-        
-        threading.Thread(target=task, daemon=True).start()
 
+        threading.Thread(target=task, daemon=True).start()
 
     def _on_sa_interactive_done(self, placed, util, rt):
         self._progress.stop()
         self._btn_sa.config(state="normal")
-        self._btn_sa_interactive.config(state="normal")
-        self._btn_sa_interactive.config(text="SA with User Input")
+        self._btn_sa_interactive.config(state="normal", text="SA with User Input")
         imp = util - self.last_util
         self._sa_label.config(
-            text=f"SA Interactive done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
+            text=f"SA Interactive done!  {util:.2f}%  "
+                 f"(+{imp:.2f}% improvement)  {rt:.1f}s")
         self.last_result = placed
-        self.last_util = util
-        self.last_algo = f"SA Interactive"
+        self.last_util   = util
+        self.last_algo   = "SA Interactive"
         self._render_3d(placed, f"SA Interactive — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
     def _on_sa_interactive_error(self, error_msg):
         self._progress.stop()
         self._btn_sa.config(state="normal")
-        self._btn_sa_interactive.config(state="normal")
-        self._btn_sa_interactive.config(text=" SA with User Input")
+        self._btn_sa_interactive.config(state="normal", text=" SA with User Input")
         self._sa_label.config(text=f"Error: {error_msg[:50]}...")
-        messagebox.showerror("SA Interactive Error", f"An error occurred:\n{error_msg}")
+        messagebox.showerror("SA Interactive Error",
+                             f"An error occurred:\n{error_msg}")
 
     # ── 3-D RENDER ────────────────────────────────────────────────────────────
 
@@ -1184,10 +1184,10 @@ class App(tk.Tk):
         self._ax.set_facecolor(C["bg_card"])
         c = self.container
 
-        # Container wireframe in light purple
         verts = [
-            (0, 0, 0), (c.length, 0, 0), (c.length, c.width, 0), (0, c.width, 0),
-            (0, 0, c.height), (c.length, 0, c.height),
+            (0, 0, 0),          (c.length, 0, 0),
+            (c.length, c.width, 0), (0, c.width, 0),
+            (0, 0, c.height),   (c.length, 0, c.height),
             (c.length, c.width, c.height), (0, c.width, c.height),
         ]
         edges = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),
@@ -1197,11 +1197,8 @@ class App(tk.Tk):
             self._ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]],
                           color=C["purple_hi"], alpha=0.35, linewidth=0.8)
 
-        # Light purple colour palette for boxes
-        normal_cols = [
-            "#efe8ff", "#ddcffb", "#cfbcfa", "#bda0fa",
-            "#ab8cf5", "#9b7fe6", "#8664ca", "#6c4aa6",
-        ]
+        normal_cols  = ["#efe8ff", "#ddcffb", "#cfbcfa", "#bda0fa",
+                        "#ab8cf5", "#9b7fe6", "#8664ca", "#6c4aa6"]
         fragile_cols = ["#bda0fa", "#ab8cf5", "#8664ca"]
         ni = fi = 0
 
@@ -1210,29 +1207,31 @@ class App(tk.Tk):
             if pb["fragile"]:
                 color = fragile_cols[fi % len(fragile_cols)]; fi += 1
             else:
-                color = normal_cols[ni % len(normal_cols)]; ni += 1
+                color = normal_cols[ni % len(normal_cols)];  ni += 1
             draw_box_3d(self._ax, pb["pos"], pb["dim"], color,
                         alpha=0.85 if is_hl else 0.65, highlight=is_hl)
 
         self._ax.view_init(elev=elev, azim=azim)
-        self._ax.set_xlim(0, c.length); self._ax.set_ylim(0, c.width)
+        self._ax.set_xlim(0, c.length)
+        self._ax.set_ylim(0, c.width)
         self._ax.set_zlim(0, c.height)
         self._ax.set_xlabel("Length (cm)", fontsize=7, color=C["fg_lavender"])
         self._ax.set_ylabel("Width  (cm)", fontsize=7, color=C["fg_lavender"])
         self._ax.set_zlabel("Height (cm)", fontsize=7, color=C["fg_lavender"])
         self._ax.tick_params(colors=C["fg_lavender"], labelsize=6)
-        self._ax.set_title(title, fontsize=9, fontweight="bold", color=C["pink_soft"])
+        self._ax.set_title(title, fontsize=9, fontweight="bold",
+                           color=C["pink_soft"])
 
         handles = [
             mpatches.Patch(color="#ab8cf5", label="Normal"),
             mpatches.Patch(color="#8664ca", label="Fragile"),
         ]
         if highlight_id:
-            handles.append(mpatches.Patch(color="gold", label=f"Selected #{highlight_id}"))
+            handles.append(
+                mpatches.Patch(color="gold", label=f"Selected #{highlight_id}"))
         self._ax.legend(handles=handles, loc="upper left", fontsize=7,
                         facecolor=C["bg_card"], edgecolor=C["purple_hi"],
                         labelcolor=C["fg_lavender"])
-
         self._canvas.draw()
 
         vol_used = sum(p["dim"][0] * p["dim"][1] * p["dim"][2] for p in placed)
@@ -1242,7 +1241,6 @@ class App(tk.Tk):
                  f"Boxes: {len(placed)}/{len(self.boxes)}   |   "
                  f"{vol_used/1e6:.3f} m³ / {c.volume/1e6:.3f} m³   |   "
                  f"Utilization: {util_pct:.2f}%")
-
 
 
 # ─────────────────────────────────────────────
