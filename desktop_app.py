@@ -132,8 +132,8 @@ class EditContainerDialog(tk.Toplevel):
         btn_row = tk.Frame(self, bg=C["bg_panel"], pady=10)
         btn_row.pack()
         for txt, cmd, bg in [
-            ("✔  Save", self._save, C["pink_hot"]),
-            ("✖  Cancel", self.destroy, C["purple_btn"]),
+            (" Save", self._save, C["pink_hot"]),
+            (" Cancel", self.destroy, C["purple_btn"]),
         ]:
             tk.Button(
                 btn_row, text=txt, font=("Helvetica", 10, "bold"),
@@ -260,8 +260,8 @@ class FlipBoxDialog(tk.Toplevel):
         btn_row = tk.Frame(self, bg=C["bg_panel"], pady=8)
         btn_row.pack()
         for txt, cmd, bg in [
-            ("✔  Apply", self._apply, C["pink_hot"]),
-            ("✖  Cancel", self.destroy, C["purple_btn"]),
+            (" Apply", self._apply, C["pink_hot"]),
+            (" Cancel", self.destroy, C["purple_btn"]),
         ]:
             tk.Button(
                 btn_row, text=txt, font=("Helvetica", 10, "bold"),
@@ -467,6 +467,18 @@ class App(tk.Tk):
             if c.name == name:
                 self.container = c; break
         self._update_container_info()
+        from app_engine import trim_unfittable_boxes
+        original_count = len(self.boxes)
+        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+        trimmed_count = original_count - len(self.boxes)
+        
+        if trimmed_count > 0:
+            messagebox.showwarning(
+                "Boxes Trimmed",
+                f" {trimmed_count} box(es) were removed because they cannot fit in the new container.\n\n"
+                f"Remaining boxes: {len(self.boxes)}"
+            )
+            self._refresh_box_tree()
 
     def _apply_custom_container(self):
         errors = []
@@ -479,14 +491,33 @@ class App(tk.Tk):
                     errors.append(f"{d} must be > 0.")
                 dims[d] = v
             except ValueError:
-                errors.append(f"{d} must be a number."); dims[d] = 0.0
+                errors.append(f"{d} must be a number.")
+                dims[d] = 0.0
         if errors:
-            messagebox.showerror("Validation Error", "\n".join(errors)); return
+            messagebox.showerror("Validation Error", "\n".join(errors))
+            return
+        
         self.container = Container(name, dims["Length"], dims["Width"], dims["Height"])
         self._container_var.set("__custom__")
         self._update_container_info()
-        messagebox.showinfo("Container Set", f"✔ Custom container set:\n{self.container}")
-
+        
+        # Trim boxes when container changes
+        from app_engine import trim_unfittable_boxes
+        original_count = len(self.boxes)
+        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+        trimmed_count = original_count - len(self.boxes)
+        
+        if trimmed_count > 0:
+            messagebox.showwarning(
+                "Boxes Trimmed",
+                f" {trimmed_count} box(es) were removed because they cannot fit in the custom container.\n\n"
+                f"Container: {self.container.length}×{self.container.width}×{self.container.height} cm\n\n"
+                f"Remaining boxes: {len(self.boxes)}"
+            )
+            self._refresh_box_tree()
+        
+        messagebox.showinfo("Container Set", f" Custom container set:\n{self.container}")
+        
     def _update_container_info(self):
         c = self.container
         self._container_info.config(
@@ -499,7 +530,7 @@ class App(tk.Tk):
 
     def _build_boxes_tab(self, parent):
         sec = self._section(parent, "Load from CSV")
-        self._btn(sec, "📂  Load CSV file", self._load_csv, bg=C["purple_btn"]).pack(
+        self._btn(sec, "Load CSV file", self._load_csv, bg=C["purple_btn"]).pack(
             fill="x", pady=2)
 
         sec2 = self._section(parent, "Add a box manually")
@@ -519,7 +550,7 @@ class App(tk.Tk):
             bg=C["bg_panel"], fg=C["fg_lavender"],
             selectcolor=C["bg_card"], font=("Helvetica", 9),
         ).pack(side="left")
-        self._btn(row2, "➕ Add Box", self._add_box_manual, bg=C["pink_mid"]).pack(side="right")
+        self._btn(row2, "Add Box", self._add_box_manual, bg=C["pink_mid"]).pack(side="right")
 
         sec3 = self._section(parent, "Box list")
         cols = ("id", "L", "W", "H", "kg", "fragile")
@@ -546,20 +577,44 @@ class App(tk.Tk):
         path = filedialog.askopenfilename(
             title="Open boxes CSV",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
-        if not path: return
+        if not path: 
+            return
         try:
             df = pd.read_csv(path)
             df["fragile"] = (df["fragile"].astype(str).str.lower()
-                             .map({"true": True, "false": False, "1": True, "0": False})
-                             .fillna(False))
+                            .map({"true": True, "false": False, "1": True, "0": False})
+                            .fillna(False))
             self.boxes = [
                 Box(id=int(r["id"]), length=float(r["length"]),
                     width=float(r["width"]), height=float(r["height"]),
                     weight_kg=float(r["weight_kg"]), fragile=bool(r["fragile"]))
                 for _, r in df.iterrows()
             ]
-            self._refresh_box_tree()
-            messagebox.showinfo("Loaded", f"✔ Loaded {len(self.boxes)} boxes.")
+            
+            from app_engine import trim_unfittable_boxes, trim_boxes_to_capacity
+            original_count = len(self.boxes)
+            self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+            dim_removed = original_count - len(self.boxes)
+
+            # Check volume
+            total_volume = sum(b.volume for b in self.boxes)
+            container_volume = self.container.volume
+
+            if total_volume > container_volume:
+                self.boxes, utilization = trim_boxes_to_capacity(self.boxes, self.container)
+                self._refresh_box_tree()
+                
+                msg = f"Loaded {len(self.boxes)} boxes"
+                if dim_removed > 0:
+                    msg += f"\nRemoved {dim_removed} boxes that cannot fit dimensionally"
+                msg += f"\nVolume utilization: {utilization:.1f}%"
+                messagebox.showinfo("Loaded", msg)
+            else:
+                self._refresh_box_tree()
+                msg = f"Loaded {len(self.boxes)} boxes"
+                if dim_removed > 0:
+                    msg += f"\nRemoved {dim_removed} boxes that cannot fit dimensionally"
+                messagebox.showinfo("Loaded", msg)
         except Exception as e:
             messagebox.showerror("Error", f"Could not load CSV:\n{e}")
 
@@ -646,7 +701,7 @@ class App(tk.Tk):
         btn_frame.pack(fill="x", pady=6)
         
         self._btn_sa = tk.Button(
-            btn_frame, text="🌡  Improve with SA",
+            btn_frame, text=" Improve with SA",
             font=("Helvetica", 10, "bold"),
             bg=C["pink_mid"], fg=C["fg_white"], relief="flat",
             padx=10, pady=8, cursor="hand2",
@@ -654,7 +709,7 @@ class App(tk.Tk):
         self._btn_sa.pack(side="left", padx=(0, 8))
         
         self._btn_sa_interactive = tk.Button(
-            btn_frame, text="💬  SA with User Input",
+            btn_frame, text="  SA with User Input",
             font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
             padx=10, pady=8, cursor="hand2",
@@ -754,7 +809,7 @@ class App(tk.Tk):
             self._refresh_placed_tree()
             self._render_3d(placed, f"{self.last_algo} (edited) — {util:.1f}%")
             self._edit_msg.config(
-                text=f"✔ Box #{self.selected_box_id} updated! Utilization: {util:.2f}%")
+                text=f"Box #{self.selected_box_id} updated! Utilization: {util:.2f}%")
 
         FlipBoxDialog(self, pb, box_obj, self.container, on_apply)
 
@@ -848,6 +903,44 @@ class App(tk.Tk):
         if not self.container:
             messagebox.showwarning("No Container", "Please select a container first.")
             return False
+        
+        from app_engine import trim_unfittable_boxes, trim_boxes_to_capacity
+        
+        # removing dimensionally unfittable boxes
+        original_count = len(self.boxes)
+        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+        dim_removed = original_count - len(self.boxes)
+        
+        if dim_removed > 0:
+            print(f"Removed {dim_removed} dimensionally unfittable boxes")
+        
+        # trimming by volume 
+        total_volume = sum(b.volume for b in self.boxes)
+        container_volume = self.container.volume
+        
+        if total_volume > container_volume:
+            response = messagebox.askyesno(
+                "Volume Exceeds Capacity",
+                f"Total box volume ({total_volume:,.0f} cm³) exceeds container capacity ({container_volume:,.0f} cm³).\n\n"
+                f"Trim boxes to fit? (Yes = keep boxes in current order until fit, No = keep all boxes)"
+            )
+            
+            if response:
+                # keep boxes in order until capacity
+                self.boxes, utilization = trim_boxes_to_capacity(self.boxes, self.container)
+                self._refresh_box_tree()
+                
+                messagebox.showinfo(
+                    "Boxes Trimmed",
+                    f"Trimmed to {len(self.boxes)} boxes\n"
+                    f"Volume: {sum(b.volume for b in self.boxes):,.0f} / {container_volume:,.0f} cm³\n"
+                    f"Utilization: {utilization:.1f}%"
+                )
+        
+        if not self.boxes:
+            messagebox.showwarning("No Boxes", "No boxes remain after trimming. Please load different boxes.")
+            return False
+        
         return True
 
     def _run_algo(self, algo: str):
@@ -878,10 +971,10 @@ class App(tk.Tk):
 
     def _on_algo_done(self, placed, util, name, rt):
         self._progress.stop()
-        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa):
+        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa, self._btn_sa_interactive):
             btn.config(state="normal")
         self._result_label.config(
-            text=f"✅ {name} done!\n"
+            text=f" {name} done!\n"
                 f"Placed: {len(placed)}/{len(self.boxes)}  |  "
                 f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s")
         self.last_result = placed
@@ -889,7 +982,8 @@ class App(tk.Tk):
         self.last_algo = name
         self._render_3d(placed, f"{name} — {util:.1f}% utilization")
         self._refresh_placed_tree()
-#______Smart Greedy _______________-
+
+# ──── Smart Greedy ─────────────────────────────────────────
     def _run_smart_greedy(self):
         """Run Smart Greedy with multiple strategies."""
         if not self._validate_ready():
@@ -919,10 +1013,10 @@ class App(tk.Tk):
 
     def _on_smart_greedy_done(self, placed, util, strategy, rt):
         self._progress.stop()
-        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa, self._btn_smart_greedy):
+        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa, self._btn_smart_greedy, self._btn_sa_interactive):
             btn.config(state="normal")
         self._result_label.config(
-            text=f"✅ Smart Greedy ({strategy}) done!\n"
+            text=f"Smart Greedy ({strategy}) done!\n"
                  f"Placed: {len(placed)}/{len(self.boxes)}  |  "
                  f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s")
         self.last_result = placed
@@ -978,7 +1072,7 @@ class App(tk.Tk):
         self._btn_sa.config(state="normal")
         imp = util - self.last_util
         self._sa_label.config(
-            text=f"✅ SA done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
+            text=f" SA done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
         self.last_result = placed
         self.last_util = util
         self.last_algo = f"SA Improved"
@@ -986,7 +1080,6 @@ class App(tk.Tk):
         self._refresh_placed_tree()
 
     # ── SIMULATED ANNEALING (INTERACTIVE) ─────────────────────────────────────
-
     def _run_sa_interactive(self):
         """Run Simulated Annealing with user interaction (asks to continue)."""
         if not self.last_result:
@@ -1005,35 +1098,36 @@ class App(tk.Tk):
         
         self._progress.start()
         self._btn_sa.config(state="disabled")
-        self._sa_label.config(text="SA running...")
+        self._btn_sa_interactive.config(state="disabled")
+        self._btn_sa_interactive.config(text="SA Running...")
+        self._sa_label.config(text="SA Interactive running...")
+        
+        # Get initial sequence from last result
         last_ids = [p["id"] for p in self.last_result]
         init_seq = sorted(
             self.boxes,
             key=lambda b: last_ids.index(b.id) if b.id in last_ids else 999)
-        
+    
         def user_ask_cb(current_util, pct_of_max, iteration):
             """Ask user via dialog whether to continue."""
-            result = [None]
+            response = [None]
             
             def ask():
-                response = messagebox.askyesno(
+                response[0] = messagebox.askyesno(
                     "Target Reached!",
-                    f"🎯 Reached {pct_of_max:.1f}% of theoretical max at iteration {iteration}!\n"
-                    f"Current utilization: {current_util:.1f}%\n"
+                    f"Reached {pct_of_max:.1f}% of theoretical max at iteration {iteration}!\n"
+                    f"Current utilization: {current_util:.1f}%\n\n"
                     f"Continue searching for better solution?",
                     parent=self
                 )
-                result[0] = response
             
             self.after(0, ask)
             
-            # Wait for user response
-            while result[0] is None:
+            while response[0] is None:
                 self.update()
                 time.sleep(0.1)
-            
-            return result[0]
-        
+            return response[0]
+    
         def task():
             t0 = time.time()
             
@@ -1041,42 +1135,45 @@ class App(tk.Tk):
                 self.after(0, lambda: self._sa_label.config(
                     text=f"SA: T={T:.2f}  iter={iteration}  best={best:.1f}%"))
             
-            placed, util, _ = simulated_annealing_interactive(
-                self.boxes, self.container,
-                initial_sequence=init_seq,
-                T_start=T_start, T_end=T_end,
-                cooling=cooling, iters_per_step=iters,
-                target_pct=target,
-                progress_cb=prog,
-                user_ask_cb=user_ask_cb
-            )
-            rt = time.time() - t0
-            
-            self.after(0, lambda: self._on_sa_interactive_done(placed, util, rt))
+            try:
+                placed, util, _ = simulated_annealing_interactive(
+                    self.boxes, self.container,
+                    initial_sequence=init_seq,
+                    T_start=T_start, T_end=T_end,
+                    cooling=cooling, iters_per_step=iters,
+                    target_pct=target,
+                    progress_cb=prog,
+                    user_ask_cb=user_ask_cb
+                )
+                rt = time.time() - t0
+                self.after(0, lambda: self._on_sa_interactive_done(placed, util, rt))
+            except Exception as e:
+                self.after(0, lambda: self._on_sa_interactive_error(str(e)))
         
         threading.Thread(target=task, daemon=True).start()
+
 
     def _on_sa_interactive_done(self, placed, util, rt):
         self._progress.stop()
         self._btn_sa.config(state="normal")
+        self._btn_sa_interactive.config(state="normal")
+        self._btn_sa_interactive.config(text="SA with User Input")
         imp = util - self.last_util
         self._sa_label.config(
-            text=f"✅ SA Interactive done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
+            text=f"SA Interactive done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
         self.last_result = placed
         self.last_util = util
         self.last_algo = f"SA Interactive"
         self._render_3d(placed, f"SA Interactive — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
-    def _on_sa_done(self, placed, util, rt):
+    def _on_sa_interactive_error(self, error_msg):
         self._progress.stop()
         self._btn_sa.config(state="normal")
-        imp = util - self.last_util
-        self._sa_label.config(
-            text=f"✅ SA done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
-        self.last_result = placed; self.last_util = util
-        self._render_3d(placed, f"SA Improved — {util:.1f}% utilization")
-        self._refresh_placed_tree()
+        self._btn_sa_interactive.config(state="normal")
+        self._btn_sa_interactive.config(text=" SA with User Input")
+        self._sa_label.config(text=f"Error: {error_msg[:50]}...")
+        messagebox.showerror("SA Interactive Error", f"An error occurred:\n{error_msg}")
 
     # ── 3-D RENDER ────────────────────────────────────────────────────────────
 

@@ -441,53 +441,76 @@ def smart_greedy_pack(boxes, container, progress_cb=None):
     
     return best_placed, best_util, best_strategy
 
-
-def simulated_annealing_interactive(boxes, container, initial_sequence=None,
-                                     T_start=500.0, T_end=5.0, cooling=0.97, 
-                                     iters_per_step=6, target_pct=80.0,
-                                     progress_cb=None, user_ask_cb=None):
+def simulated_annealing_interactive(
+    boxes: List[Box],
+    container: Container,
+    *,
+    initial_sequence: Optional[List[Box]] = None,
+    T_start: float = 500.0,
+    T_end: float = 5.0,
+    cooling: float = 0.97,
+    iters_per_step: int = 6,
+    target_pct: float = 80.0,
+    progress_cb=None,
+    user_ask_cb=None,
+) -> Tuple[List[dict], float, float]:
     """
-    Simulated Annealing with user interaction.
-    user_ask_cb: function(current_util, pct_of_max, iteration) -> bool
-                 Returns True to continue, False to stop.
+    Simulated Annealing with user interaction - matches notebook behavior.
     """
-    # Start with greedy if no initial sequence provided
-    if initial_sequence is None:
-        initial_sequence = sorted(boxes, key=lambda b: b.volume, reverse=True)
+    from app_engine import pack_sequence
     
-    current_seq = initial_sequence[:]
+    # Start with initial sequence or default
+    if initial_sequence is None:
+        current_seq = sorted(boxes, key=lambda b: b.volume, reverse=True)
+    else:
+        current_seq = initial_sequence[:]
+    
     random.shuffle(current_seq)
     
-    # Initial evaluation using pack_sequence
-    from app_engine import pack_sequence
+    # Initial evaluation
     placed, current_score = pack_sequence(current_seq, container)
     
     best_seq = current_seq[:]
     best_score = current_score
     
     theoretical_max = sum(b.volume for b in boxes)
+    container_vol = container.volume
     target_volume = theoretical_max * (target_pct / 100.0)
     target_reached = False
     
     T = T_start
-    step = 0
     total_iterations = 0
     no_improvement_count = 0
     start_time = time.time()
     should_continue = True
     
+    print(f"\n{'='*60}")
+    print(f"SA Interactive Started")
+    print(f"  Theoretical max: {theoretical_max/container_vol*100:.1f}% of container")
+    print(f"  Target: {target_pct}% of theoretical max = {target_volume/container_vol*100:.1f}% of container")
+    print(f"  Initial: {best_score/container_vol*100:.1f}% of container")
+    print(f"{'='*60}\n")
+    
     while T > T_end and should_continue:
         for _ in range(iters_per_step):
             total_iterations += 1
             
+            # Print progress every 100 iterations
+            if total_iterations % 100 == 0:
+                print(f"  Iter {total_iterations}: T={T:.2f}, best={best_score/container_vol*100:.1f}%")
+            
             # Check if target reached
             if not target_reached and best_score >= target_volume:
                 target_reached = True
-                current_util = best_score / container.volume * 100
+                current_util = best_score / container_vol * 100
                 pct_of_max = best_score / theoretical_max * 100
+                
+                print(f"\nTARGET REACHED at iteration {total_iterations}!")
+                print(f"   {pct_of_max:.1f}% of theoretical max ({current_util:.1f}% of container)")
                 
                 if user_ask_cb:
                     should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
+                    print(f"   User chose to {'continue' if should_continue else 'stop'}")
                     if not should_continue:
                         break
             
@@ -513,13 +536,24 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
                 best_score = current_score
                 best_seq = current_seq[:]
                 no_improvement_count = 0
+                
+                # If target already reached and we found improvement, ask again
+                if target_reached and user_ask_cb:
+                    current_util = best_score / container_vol * 100
+                    pct_of_max = best_score / theoretical_max * 100
+                    print(f"\n IMPROVED to {pct_of_max:.1f}% of theoretical max!")
+                    should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
+                    print(f"   User chose to {'continue' if should_continue else 'stop'}")
+                    if not should_continue:
+                        break
             
-            # Progress callback
+            # Progress callback for GUI
             if progress_cb and total_iterations % 10 == 0:
-                progress_cb(T, best_score / container.volume * 100, total_iterations)
+                progress_cb(T, best_score / container_vol * 100, total_iterations)
             
             # Early stop if stuck
             if no_improvement_count > 200:
+                print(f"\nNo improvement for {no_improvement_count} iterations - stopping")
                 break
         
         # Check if user stopped
@@ -527,13 +561,18 @@ def simulated_annealing_interactive(boxes, container, initial_sequence=None,
             break
         
         T *= cooling
-        step += 1
     
     # Final packing with best sequence
     placed, _ = pack_sequence(best_seq, container)
     execution_time = time.time() - start_time
     
-    return placed, best_score / container.volume * 100, execution_time
+    print(f"\n{'='*60}")
+    print(f"SA Interactive Finished")
+    print(f"  Final utilization: {best_score/container_vol*100:.2f}%")
+    print(f"  Time: {execution_time:.1f}s")
+    print(f"{'='*60}\n")
+    
+    return placed, best_score / container_vol * 100, execution_time
 
 def validate_result(
     placed: List[dict],
@@ -625,6 +664,71 @@ def trim_unfittable_boxes(boxes: List[Box], container: Container) -> List[Box]:
         print(f"⚠️ Removed {len(removed_ids)} box(es) that cannot fit: {removed_ids[:10]}...")
     
     return trimmed_boxes
+
+def _to_app_placements_from_notebook(result) -> List[dict]:
+    """Convert notebook PackingResult to app format."""
+    placed = []
+    for p in result.placed_boxes:
+        placed.append({
+            "id": p.box.id,
+            "pos": (p.x, p.z, p.y),
+            "dim": (p.l, p.w, p.h),
+            "weight": p.box.weight_kg,
+            "fragile": p.box.fragile,
+        })
+    return placed
+
+def trim_boxes_to_capacity(boxes: List[Box], container: Container) -> Tuple[List[Box], float]:
+    """
+    Remove boxes from the end until total volume <= container capacity.
+    """
+    current_volume = 0
+    trimmed_boxes = []
+    
+    for box in boxes:
+        if current_volume + box.volume <= container.volume:
+            trimmed_boxes.append(box)
+            current_volume += box.volume
+        else:
+            break  # Stop when capacity reached (keeps first N boxes)
+    
+    utilization = (current_volume / container.volume) * 100 if container.volume > 0 else 0
+    removed = len(boxes) - len(trimmed_boxes)
+    
+    print(f"Original boxes: {len(boxes)}")
+    print(f"Boxes after trimming: {len(trimmed_boxes)}")
+    print(f"Total volume: {current_volume:.2f} / {container.volume:.2f}")
+    print(f"Utilization: {utilization:.2f}%")
+    print(f"Removed {removed} boxes from the end")
+    
+    return trimmed_boxes, utilization
+
+
+def trim_boxes_by_volume(boxes: List[Box], container: Container) -> Tuple[List[Box], float, int]:
+    """
+    Sort by volume (largest first) and keep until capacity.
+    This maximizes utilization when you have to choose.
+    """
+    sorted_boxes = sorted(boxes, key=lambda b: b.volume, reverse=True)
+    
+    current_volume = 0
+    trimmed_boxes = []
+    
+    for box in sorted_boxes:
+        if current_volume + box.volume <= container.volume:
+            trimmed_boxes.append(box)
+            current_volume += box.volume
+    
+    utilization = (current_volume / container.volume) * 100 if container.volume > 0 else 0
+    removed = len(boxes) - len(trimmed_boxes)
+    
+    print(f"Original boxes: {len(boxes)}")
+    print(f"Boxes after trimming (by volume): {len(trimmed_boxes)}")
+    print(f"Total volume: {current_volume:.2f} / {container.volume:.2f}")
+    print(f"Utilization: {utilization:.2f}%")
+    
+    return trimmed_boxes, utilization, removed
+
 
 all = [
     "Box",
