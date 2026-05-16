@@ -42,32 +42,33 @@ from app_engine import (
 # ─────────────────────────────────────────────
 
 C = {
-    "bg_main":      "#ffffff",
-    "bg_panel":     "#f8fdf9",
-    "bg_card":      "#ffffff",
-    "bg_light":     "#f1faf3",
-    "fg_lavender":  "#56427e",
-    "fg_muted":     "#6b7280",
-    "fg_dark":      "#392650",
-    "fg_white":     "#ffffff",
-    "primary":      "#ab8cf5",
+    "bg_main": "#ffffff",
+    "bg_panel": "#f8fdf9",
+    "bg_card": "#ffffff",
+    "bg_light": "#f1faf3",
+    "fg_lavender": "#56427e",
+    "fg_muted": "#6b7280",
+    "fg_dark": "#392650",
+    "fg_white": "#ffffff",
+    "primary": "#ab8cf5",
     "primary_dark": "#8f70db",
     "primary_soft": "#d3c2fb",
-    "pink_hot":     "#ab8cf5",
-    "pink_mid":     "#bda0fa",
-    "pink_soft":    "#7f5eb8",
-    "purple_dark":  "#ddcffb",
-    "purple_btn":   "#9b7fe6",
-    "purple_hi":    "#6c4aa6",
-    "green":        "#7356ad",
-    "amber":        "#aa8fd3",
-    "red":          "#b85c5c",
+    "pink_hot": "#ab8cf5",
+    "pink_mid": "#bda0fa",
+    "pink_soft": "#7f5eb8",
+    "purple_dark": "#ddcffb",
+    "purple_btn": "#9b7fe6",
+    "purple_hi": "#6c4aa6",
+    "green": "#7356ad",
+    "amber": "#aa8fd3",
+    "red": "#b85c5c",
 }
 
 
 # ─────────────────────────────────────────────
 #  EDIT CONTAINER DIALOG
 # ─────────────────────────────────────────────
+
 
 class EditContainerDialog(tk.Toplevel):
     """Modal popup to edit a preset container's dimensions."""
@@ -87,35 +88,48 @@ class EditContainerDialog(tk.Toplevel):
             self,
             text=f"✏  Edit Container: {container.name}",
             font=("Helvetica", 12, "bold"),
-            bg=C["pink_hot"], fg=C["fg_white"], pady=10,
+            bg=C["pink_hot"],
+            fg=C["fg_white"],
+            pady=10,
         ).pack(fill="x")
 
         form = tk.Frame(self, bg=C["bg_panel"], padx=24, pady=12)
         form.pack(fill="both", expand=True)
 
         fields = [
-            ("Name",   container.name,   "Display name"),
+            ("Name", container.name, "Display name"),
             ("Length", container.length, "Internal length (cm)"),
-            ("Width",  container.width,  "Internal width  (cm)"),
+            ("Width", container.width, "Internal width  (cm)"),
             ("Height", container.height, "Internal height (cm)"),
         ]
         self._entries: dict = {}
         for i, (lbl, default, hint) in enumerate(fields):
             tk.Label(
-                form, text=lbl + ":", bg=C["bg_panel"],
-                fg=C["fg_lavender"], font=("Helvetica", 9, "bold"),
-                width=9, anchor="w",
+                form,
+                text=lbl + ":",
+                bg=C["bg_panel"],
+                fg=C["fg_lavender"],
+                font=("Helvetica", 9, "bold"),
+                width=9,
+                anchor="w",
             ).grid(row=i, column=0, pady=6, sticky="w")
             e = tk.Entry(
-                form, font=("Helvetica", 10), width=18,
-                bg=C["bg_light"], fg=C["fg_dark"],
-                insertbackground=C["purple_dark"], relief="flat",
+                form,
+                font=("Helvetica", 10),
+                width=18,
+                bg=C["bg_light"],
+                fg=C["fg_dark"],
+                insertbackground=C["purple_dark"],
+                relief="flat",
             )
             e.insert(0, str(default))
             e.grid(row=i, column=1, padx=8, pady=6)
             tk.Label(
-                form, text=hint, bg=C["bg_panel"],
-                fg=C["purple_hi"], font=("Helvetica", 7),
+                form,
+                text=hint,
+                bg=C["bg_panel"],
+                fg=C["purple_hi"],
+                font=("Helvetica", 7),
             ).grid(row=i, column=2, sticky="w", padx=4)
             self._entries[lbl] = e
 
@@ -131,9 +145,16 @@ class EditContainerDialog(tk.Toplevel):
             (" Cancel", self.destroy, C["purple_btn"]),
         ]:
             tk.Button(
-                btn_row, text=txt, font=("Helvetica", 10, "bold"),
-                bg=bg, fg=C["fg_white"], relief="flat",
-                padx=14, pady=6, cursor="hand2", command=cmd,
+                btn_row,
+                text=txt,
+                font=("Helvetica", 10, "bold"),
+                bg=bg,
+                fg=C["fg_white"],
+                relief="flat",
+                padx=14,
+                pady=6,
+                cursor="hand2",
+                command=cmd,
             ).pack(side="left", padx=8)
 
     def _save(self):
@@ -154,9 +175,9 @@ class EditContainerDialog(tk.Toplevel):
         if errors:
             self._msg.config(text="\n".join(errors))
             return
-        self.container.name   = name
+        self.container.name = name
         self.container.length = nums["Length"]
-        self.container.width  = nums["Width"]
+        self.container.width = nums["Width"]
         self.container.height = nums["Height"]
         self.on_save()
         self.destroy()
@@ -166,11 +187,13 @@ class EditContainerDialog(tk.Toplevel):
 #  FLIP / REPOSITION BOX DIALOG
 # ─────────────────────────────────────────────
 
+
 class FlipBoxDialog(tk.Toplevel):
     """Popup to change orientation or position of a non-fragile placed box."""
 
-    def __init__(self, parent, placed_box: dict, box_obj: Box,
-                 container: Container, on_apply):
+    def __init__(
+        self, parent, placed_box: dict, box_obj: Box, container: Container, on_apply
+    ):
         super().__init__(parent)
         self.title(f"Edit Box #{placed_box['id']}")
         self.geometry("400x380")
@@ -178,16 +201,18 @@ class FlipBoxDialog(tk.Toplevel):
         self.configure(bg=C["bg_panel"])
         self.grab_set()
 
-        self.pb        = placed_box
-        self.box_obj   = box_obj
+        self.pb = placed_box
+        self.box_obj = box_obj
         self.container = container
-        self.on_apply  = on_apply
+        self.on_apply = on_apply
 
         tk.Label(
             self,
             text=f"🔄  Box #{placed_box['id']}  —  Non-Fragile",
             font=("Helvetica", 11, "bold"),
-            bg=C["pink_mid"], fg=C["fg_white"], pady=8,
+            bg=C["pink_mid"],
+            fg=C["fg_white"],
+            pady=8,
         ).pack(fill="x")
 
         info = tk.Frame(self, bg=C["bg_card"], pady=6, padx=12)
@@ -199,35 +224,52 @@ class FlipBoxDialog(tk.Toplevel):
             f"Current position    : x={cur_x}, y={cur_y}, z={cur_z}",
             f"Weight              : {placed_box['weight']} kg",
         ]:
-            tk.Label(info, text=text, bg=C["bg_card"],
-                     fg=C["fg_lavender"], font=("Helvetica", 9)).pack(anchor="w")
+            tk.Label(
+                info,
+                text=text,
+                bg=C["bg_card"],
+                fg=C["fg_lavender"],
+                font=("Helvetica", 9),
+            ).pack(anchor="w")
 
         ori_sec = tk.LabelFrame(
-            self, text="  Choose orientation  ",
-            bg=C["bg_panel"], fg=C["pink_soft"],
-            font=("Helvetica", 9, "bold"), padx=12, pady=6,
+            self,
+            text="  Choose orientation  ",
+            bg=C["bg_panel"],
+            fg=C["pink_soft"],
+            font=("Helvetica", 9, "bold"),
+            padx=12,
+            pady=6,
         )
         ori_sec.pack(fill="x", padx=12, pady=(10, 0))
 
         self._ori_var = tk.StringVar()
-        oris   = box_obj.get_orientations()
+        oris = box_obj.get_orientations()
         labels = box_obj.orientation_labels()
         cur_str = f"{cur_l}×{cur_w}×{cur_h} cm"
         for lbl, ori in zip(labels, oris):
             marker = "  ← current" if lbl == cur_str else ""
             tk.Radiobutton(
-                ori_sec, text=lbl + marker,
-                variable=self._ori_var, value=lbl,
-                bg=C["bg_panel"], fg=C["fg_lavender"],
-                selectcolor=C["bg_card"], font=("Helvetica", 9),
+                ori_sec,
+                text=lbl + marker,
+                variable=self._ori_var,
+                value=lbl,
+                bg=C["bg_panel"],
+                fg=C["fg_lavender"],
+                selectcolor=C["bg_card"],
+                font=("Helvetica", 9),
             ).pack(anchor="w")
         self._ori_var.set(cur_str)
         self._oris = dict(zip(labels, oris))
 
         pos_sec = tk.LabelFrame(
-            self, text="  Override position (cm, optional)  ",
-            bg=C["bg_panel"], fg=C["pink_soft"],
-            font=("Helvetica", 9, "bold"), padx=12, pady=6,
+            self,
+            text="  Override position (cm, optional)  ",
+            bg=C["bg_panel"],
+            fg=C["pink_soft"],
+            font=("Helvetica", 9, "bold"),
+            padx=12,
+            pady=6,
         )
         pos_sec.pack(fill="x", padx=12, pady=(8, 0))
         row = tk.Frame(pos_sec, bg=C["bg_panel"])
@@ -235,11 +277,20 @@ class FlipBoxDialog(tk.Toplevel):
         self._pos_entries: dict = {}
         for axis, val in [("X", cur_x), ("Y", cur_y), ("Z", cur_z)]:
             tk.Label(
-                row, text=axis + ":", bg=C["bg_panel"],
-                fg=C["fg_lavender"], font=("Helvetica", 9),
+                row,
+                text=axis + ":",
+                bg=C["bg_panel"],
+                fg=C["fg_lavender"],
+                font=("Helvetica", 9),
             ).pack(side="left", padx=(4, 0))
-            e = tk.Entry(row, width=7, font=("Helvetica", 9),
-                         bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
+            e = tk.Entry(
+                row,
+                width=7,
+                font=("Helvetica", 9),
+                bg=C["bg_light"],
+                fg=C["fg_dark"],
+                relief="flat",
+            )
             e.insert(0, str(val))
             e.pack(side="left", padx=(2, 6))
             self._pos_entries[axis] = e
@@ -256,9 +307,16 @@ class FlipBoxDialog(tk.Toplevel):
             (" Cancel", self.destroy, C["purple_btn"]),
         ]:
             tk.Button(
-                btn_row, text=txt, font=("Helvetica", 10, "bold"),
-                bg=bg, fg=C["fg_white"], relief="flat",
-                padx=14, pady=6, cursor="hand2", command=cmd,
+                btn_row,
+                text=txt,
+                font=("Helvetica", 10, "bold"),
+                bg=bg,
+                fg=C["fg_white"],
+                relief="flat",
+                padx=14,
+                pady=6,
+                cursor="hand2",
+                command=cmd,
             ).pack(side="left", padx=8)
 
     def _apply(self):
@@ -276,11 +334,17 @@ class FlipBoxDialog(tk.Toplevel):
             return
         bl, bw, bh = new_ori
         c = self.container
-        if (nx < 0 or ny < 0 or nz < 0 or
-                nx + bl > c.length or ny + bw > c.width or nz + bh > c.height):
+        if (
+            nx < 0
+            or ny < 0
+            or nz < 0
+            or nx + bl > c.length
+            or ny + bw > c.width
+            or nz + bh > c.height
+        ):
             self._msg.config(
                 text=f"Box doesn't fit at that position in the container.\n"
-                     f"Container: {c.length}×{c.width}×{c.height} cm"
+                f"Container: {c.length}×{c.width}×{c.height} cm"
             )
             return
         self.on_apply(new_ori, (nx, ny, nz))
@@ -291,6 +355,7 @@ class FlipBoxDialog(tk.Toplevel):
 #  MAIN APPLICATION
 # ─────────────────────────────────────────────
 
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -299,36 +364,67 @@ class App(tk.Tk):
         self.configure(bg=C["bg_main"])
         self.resizable(True, True)
 
-        self.boxes: list                  = []
-        self.container: Container         = PRESET_CONTAINERS[0]
-        self.last_result                  = None
-        self.last_util                    = 0.0
-        self.last_algo                    = ""
-        self.selected_box_id              = None
-        self._forced_orientations: dict   = {}
+        self.boxes: list = []
+        self.container: Container = PRESET_CONTAINERS[0]
+        self.last_result = None
+        self.last_util = 0.0
+        self.last_algo = ""
+        self.selected_box_id = None
+        self._forced_orientations: dict = {}
 
         self._apply_ttk_style()
         self._build_ui()
+
+    def _show_algo_description(self, algo_name):
+        """Show description for the selected algorithm"""
+        descriptions = {
+            "greedy": "📦 **Greedy Algorithm**\n\nPlaces items in the first container where they fit.\nSimple & fast, but not optimal for 3D bin packing.\n\n➤ Iterates through items in given order\n➤ Finds first container with enough remaining space\n➤ Places item without repositioning\n➤ Best for: Quick baseline solution",
+            "smart_greedy": "🧠 **Smart Greedy Algorithm**\n\nSorts items by volume (largest first) before placement.\nBetter space utilization than basic greedy.\n\n➤ Items sorted by volume descending\n➤ Always tries largest items first\n➤ Reduces wasted corner spaces\n➤ Good balance of speed & quality for 3D packing",
+            "ga": "🧬 **Genetic Algorithm**\n\nEvolutionary approach for near-optimal 3D packing.\nMore thorough exploration than greedy methods.\n\n➤ Creates population of random packing orders\n➤ Selects best solutions (highest space usage)\n➤ Crossover & mutation to evolve better orders\n➤ Best for: High-quality solutions when speed less critical",
+        }
+        desc = descriptions.get(algo_name, "Select an algorithm to see description.")
+        # Update the result label with description (instead of "No results yet")
+        self._result_label.config(
+            text=desc, fg=C["fg_lavender"], justify="left", anchor="w", wraplength=500
+        )
 
     # ── TTK STYLE ─────────────────────────────────────────────────────────────
 
     def _apply_ttk_style(self):
         style = ttk.Style(self)
         style.theme_use("clam")
-        style.configure("TNotebook",        background=C["bg_panel"], borderwidth=0)
-        style.configure("TNotebook.Tab",    background=C["bg_card"],
-                        foreground=C["fg_lavender"], padding=[12, 5],
-                        font=("Helvetica", 9, "bold"))
-        style.map("TNotebook.Tab",
-                  background=[("selected", C["pink_hot"])],
-                  foreground=[("selected", C["fg_white"])])
-        style.configure("TProgressbar",     troughcolor=C["bg_card"],
-                        background=C["pink_hot"], borderwidth=0)
-        style.configure("Treeview",         background=C["bg_card"],
-                        foreground=C["fg_lavender"],
-                        fieldbackground=C["bg_card"], rowheight=22)
-        style.configure("Treeview.Heading", background=C["purple_dark"],
-                        foreground=C["fg_white"], font=("Helvetica", 8, "bold"))
+        style.configure("TNotebook", background=C["bg_panel"], borderwidth=0)
+        style.configure(
+            "TNotebook.Tab",
+            background=C["bg_card"],
+            foreground=C["fg_lavender"],
+            padding=[12, 5],
+            font=("Helvetica", 9, "bold"),
+        )
+        style.map(
+            "TNotebook.Tab",
+            background=[("selected", C["pink_hot"])],
+            foreground=[("selected", C["fg_white"])],
+        )
+        style.configure(
+            "TProgressbar",
+            troughcolor=C["bg_card"],
+            background=C["pink_hot"],
+            borderwidth=0,
+        )
+        style.configure(
+            "Treeview",
+            background=C["bg_card"],
+            foreground=C["fg_lavender"],
+            fieldbackground=C["bg_card"],
+            rowheight=22,
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=C["purple_dark"],
+            foreground=C["fg_white"],
+            font=("Helvetica", 8, "bold"),
+        )
         style.map("Treeview", background=[("selected", C["pink_mid"])])
 
     # ── UI CONSTRUCTION ────────────────────────────────────────────────────────
@@ -337,13 +433,18 @@ class App(tk.Tk):
         hdr = tk.Frame(self, bg=C["purple_dark"], pady=12)
         hdr.pack(fill="x")
         tk.Label(
-            hdr, text="3D Container Loading Optimizer",
-            font=("Helvetica", 18, "bold"), fg=C["pink_hot"], bg=C["purple_dark"],
+            hdr,
+            text="3D Container Loading Optimizer",
+            font=("Helvetica", 18, "bold"),
+            fg=C["pink_hot"],
+            bg=C["purple_dark"],
         ).pack()
         tk.Label(
             hdr,
             text="Greedy, Genetic,  Simulated Annealing  with an  Interactive 3D visualization",
-            font=("Helvetica", 9), fg=C["purple_hi"], bg=C["purple_dark"],
+            font=("Helvetica", 9),
+            fg=C["purple_hi"],
+            bg=C["purple_dark"],
         ).pack()
 
         main = tk.Frame(self, bg=C["bg_main"])
@@ -353,8 +454,12 @@ class App(tk.Tk):
         left.pack(side="left", fill="y", padx=(0, 8))
         left.pack_propagate(False)
 
-        right = tk.Frame(main, bg=C["bg_card"],
-                         highlightbackground=C["pink_hot"], highlightthickness=1)
+        right = tk.Frame(
+            main,
+            bg=C["bg_card"],
+            highlightbackground=C["pink_hot"],
+            highlightthickness=1,
+        )
         right.pack(side="left", fill="both", expand=True)
 
         self._build_left(left)
@@ -375,22 +480,33 @@ class App(tk.Tk):
 
     def _section(self, parent, title):
         f = tk.LabelFrame(
-            parent, text=f"  {title}  ",
+            parent,
+            text=f"  {title}  ",
             font=("Helvetica", 9, "bold"),
-            bg=C["bg_panel"], fg=C["pink_soft"],
-            padx=16, pady=8,                    # ← inner breathing room
-            relief="groove", bd=1,
+            bg=C["bg_panel"],
+            fg=C["pink_soft"],
+            padx=16,
+            pady=8,
+            relief="groove",
+            bd=1,
         )
-        f.pack(fill="x", padx=12, pady=(8, 0))  # ← outer margin
+        f.pack(fill="x", padx=12, pady=(8, 0))
         return f
 
     def _btn(self, parent, text, command, bg=None, **kw):
         bg = bg or C["pink_hot"]
         return tk.Button(
-            parent, text=text, command=command,
+            parent,
+            text=text,
+            command=command,
             font=("Helvetica", 9, "bold"),
-            bg=bg, fg=C["fg_white"], relief="flat",
-            padx=10, pady=5, cursor="hand2", **kw,
+            bg=bg,
+            fg=C["fg_white"],
+            relief="flat",
+            padx=10,
+            pady=5,
+            cursor="hand2",
+            **kw,
         )
 
     # ── TAB 1: Container ──────────────────────────────────────────────────────
@@ -402,26 +518,31 @@ class App(tk.Tk):
 
         for c in PRESET_CONTAINERS:
             row = tk.Frame(sec, bg=C["bg_panel"])
-            row.pack(fill="x", pady=2, padx=(10,0))
+            row.pack(fill="x", pady=2, padx=(10, 0))
             rb_label = tk.StringVar(value=str(c))
             rb = tk.Radiobutton(
-            row,
-            textvariable=rb_label,
-            variable=self._container_var,
-            value=c.name,
-            bg=C["bg_panel"],
-            fg=C["fg_lavender"],
-            selectcolor=C["bg_card"],
-            font=("Helvetica", 9),
-            command=self._on_preset_select,
-            wraplength=250,   # wrap text after 250 pixels
-            justify="left"
+                row,
+                textvariable=rb_label,
+                variable=self._container_var,
+                value=c.name,
+                bg=C["bg_panel"],
+                fg=C["fg_lavender"],
+                selectcolor=C["bg_card"],
+                font=("Helvetica", 9),
+                command=self._on_preset_select,
+                wraplength=250,
+                justify="left",
             )
             rb.pack(side="left")
             tk.Button(
-                row, text="✏", font=("Helvetica", 8),
-                bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
-                cursor="hand2", padx=4,
+                row,
+                text="✏",
+                font=("Helvetica", 8),
+                bg=C["purple_btn"],
+                fg=C["fg_white"],
+                relief="flat",
+                cursor="hand2",
+                padx=4,
                 command=lambda cont=c, lv=rb_label: self._edit_preset(cont, lv),
             ).pack(side="right", padx=2)
             self._preset_rows.append((c, rb_label))
@@ -430,26 +551,50 @@ class App(tk.Tk):
         grid = tk.Frame(sec2, bg=C["bg_panel"])
         grid.pack(fill="x", pady=(4, 0))
         self._custom_entries: dict = {}
-        for i, (lbl, default) in enumerate([
-            ("Name", "My Container"), ("Length", "520"),
-            ("Width", "210"),         ("Height", "210"),
-        ]):
-            tk.Label(grid, text=lbl + ":", bg=C["bg_panel"],
-                     fg=C["fg_lavender"], font=("Helvetica", 9),
-                     width=8, anchor="w").grid(row=i, column=0, pady=3, sticky="w")
-            e = tk.Entry(grid, font=("Helvetica", 9), width=16,
-                         bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
+        for i, (lbl, default) in enumerate(
+            [
+                ("Name", "My Container"),
+                ("Length", "520"),
+                ("Width", "210"),
+                ("Height", "210"),
+            ]
+        ):
+            tk.Label(
+                grid,
+                text=lbl + ":",
+                bg=C["bg_panel"],
+                fg=C["fg_lavender"],
+                font=("Helvetica", 9),
+                width=8,
+                anchor="w",
+            ).grid(row=i, column=0, pady=3, sticky="w")
+            e = tk.Entry(
+                grid,
+                font=("Helvetica", 9),
+                width=16,
+                bg=C["bg_light"],
+                fg=C["fg_dark"],
+                relief="flat",
+            )
             e.insert(0, default)
             e.grid(row=i, column=1, padx=6, pady=3)
             self._custom_entries[lbl] = e
-        self._btn(sec2, "Use Custom Container",
-                  self._apply_custom_container,
-                  bg=C["purple_btn"]).pack(pady=(8, 2), anchor="w")
+        self._btn(
+            sec2,
+            "Use Custom Container",
+            self._apply_custom_container,
+            bg=C["purple_btn"],
+        ).pack(pady=(8, 2), anchor="w")
 
         self._container_info = tk.Label(
-            parent, text="", font=("Helvetica", 9),
-            bg=C["bg_card"], fg=C["purple_hi"],
-            relief="flat", pady=6, wraplength=400,
+            parent,
+            text="",
+            font=("Helvetica", 9),
+            bg=C["bg_card"],
+            fg=C["purple_hi"],
+            relief="flat",
+            pady=6,
+            wraplength=400,
         )
         self._container_info.pack(fill="x", padx=12, pady=(6, 8))
         self._update_container_info()
@@ -459,6 +604,7 @@ class App(tk.Tk):
             label_var.set(str(container))
             if self.container is container:
                 self._update_container_info()
+
         EditContainerDialog(self, container, on_save)
 
     def _on_preset_select(self):
@@ -468,14 +614,14 @@ class App(tk.Tk):
                 self.container = c
                 break
         self._update_container_info()
-        original_count  = len(self.boxes)
-        self.boxes       = trim_unfittable_boxes(self.boxes, self.container)
-        trimmed_count   = original_count - len(self.boxes)
+        original_count = len(self.boxes)
+        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+        trimmed_count = original_count - len(self.boxes)
         if trimmed_count > 0:
             messagebox.showwarning(
                 "Boxes Trimmed",
                 f"{trimmed_count} box(es) removed — cannot fit in the new container.\n\n"
-                f"Remaining boxes: {len(self.boxes)}"
+                f"Remaining boxes: {len(self.boxes)}",
             )
             self._refresh_box_tree()
 
@@ -499,14 +645,14 @@ class App(tk.Tk):
         self._container_var.set("__custom__")
         self._update_container_info()
         original_count = len(self.boxes)
-        self.boxes      = trim_unfittable_boxes(self.boxes, self.container)
-        trimmed_count  = original_count - len(self.boxes)
+        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+        trimmed_count = original_count - len(self.boxes)
         if trimmed_count > 0:
             messagebox.showwarning(
                 "Boxes Trimmed",
                 f"{trimmed_count} box(es) removed — cannot fit in the custom container.\n\n"
                 f"Container: {self.container.length}×{self.container.width}×{self.container.height} cm\n\n"
-                f"Remaining boxes: {len(self.boxes)}"
+                f"Remaining boxes: {len(self.boxes)}",
             )
             self._refresh_box_tree()
         messagebox.showinfo("Container Set", f"Custom container set:\n{self.container}")
@@ -515,38 +661,55 @@ class App(tk.Tk):
         c = self.container
         self._container_info.config(
             text=f"Selected: {c.name}\n"
-                 f"Dimensions: {c.length} × {c.width} × {c.height} cm\n"
-                 f"Volume: {c.volume/1e6:.3f} m³  ({c.volume:,.0f} cm³)"
+            f"Dimensions: {c.length} × {c.width} × {c.height} cm\n"
+            f"Volume: {c.volume/1e6:.3f} m³  ({c.volume:,.0f} cm³)"
         )
 
     # ── TAB 2: Boxes ──────────────────────────────────────────────────────────
 
     def _build_boxes_tab(self, parent):
         sec = self._section(parent, "Load from CSV")
-        self._btn(sec, "Load CSV file", self._load_csv,
-                  bg=C["purple_btn"]).pack(fill="x", pady=2)
+        self._btn(sec, "Load CSV file", self._load_csv, bg=C["purple_btn"]).pack(
+            fill="x", pady=2
+        )
 
         sec2 = self._section(parent, "Add a box manually")
         self._box_entries: dict = {}
         row_f = tk.Frame(sec2, bg=C["bg_panel"])
         row_f.pack(fill="x")
         for i, lbl in enumerate(("Length", "Width", "Height", "Weight(kg)")):
-            tk.Label(row_f, text=lbl, bg=C["bg_panel"], fg=C["fg_lavender"],
-                     font=("Helvetica", 8)).grid(row=0, column=i*2, padx=(4, 0))
-            e = tk.Entry(row_f, width=7, font=("Helvetica", 9),
-                         bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
-            e.grid(row=0, column=i*2+1, padx=(2, 4))
+            tk.Label(
+                row_f,
+                text=lbl,
+                bg=C["bg_panel"],
+                fg=C["fg_lavender"],
+                font=("Helvetica", 8),
+            ).grid(row=0, column=i * 2, padx=(4, 0))
+            e = tk.Entry(
+                row_f,
+                width=7,
+                font=("Helvetica", 9),
+                bg=C["bg_light"],
+                fg=C["fg_dark"],
+                relief="flat",
+            )
+            e.grid(row=0, column=i * 2 + 1, padx=(2, 4))
             self._box_entries[lbl] = e
         row2 = tk.Frame(sec2, bg=C["bg_panel"])
         row2.pack(fill="x", pady=4)
         self._fragile_var = tk.BooleanVar()
         tk.Checkbutton(
-            row2, text="Fragile", variable=self._fragile_var,
-            bg=C["bg_panel"], fg=C["fg_lavender"],
-            selectcolor=C["bg_card"], font=("Helvetica", 9),
+            row2,
+            text="Fragile",
+            variable=self._fragile_var,
+            bg=C["bg_panel"],
+            fg=C["fg_lavender"],
+            selectcolor=C["bg_card"],
+            font=("Helvetica", 9),
         ).pack(side="left")
-        self._btn(row2, "Add Box", self._add_box_manual,
-                  bg=C["pink_mid"]).pack(side="right")
+        self._btn(row2, "Add Box", self._add_box_manual, bg=C["pink_mid"]).pack(
+            side="right"
+        )
 
         sec3 = self._section(parent, "Box list")
         cols = ("id", "L", "W", "H", "kg", "fragile")
@@ -561,67 +724,95 @@ class App(tk.Tk):
 
         row3 = tk.Frame(parent, bg=C["bg_panel"])
         row3.pack(fill="x", padx=8, pady=4)
-        self._btn(row3, "🗑 Remove",  self._remove_box,  bg=C["red"]).pack(side="left")
-        self._btn(row3, "Clear All", self._clear_boxes,  bg=C["purple_dark"]).pack(
-            side="left", padx=6)
+        self._btn(row3, "🗑 Remove", self._remove_box, bg=C["red"]).pack(side="left")
+        self._btn(row3, "Clear All", self._clear_boxes, bg=C["purple_dark"]).pack(
+            side="left", padx=6
+        )
         self._boxes_label = tk.Label(
-            parent, text="No boxes loaded.",
-            font=("Helvetica", 9, "italic"), bg=C["bg_panel"], fg=C["purple_hi"],
+            parent,
+            text="No boxes loaded.",
+            font=("Helvetica", 9, "italic"),
+            bg=C["bg_panel"],
+            fg=C["purple_hi"],
         )
         self._boxes_label.pack(pady=2)
 
     def _load_csv(self):
         path = filedialog.askopenfilename(
             title="Open boxes CSV",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
         if not path:
             return
         try:
             df = pd.read_csv(path)
-            df["fragile"] = (df["fragile"].astype(str).str.lower()
-                             .map({"true": True, "false": False, "1": True, "0": False})
-                             .fillna(False))
+            df["fragile"] = (
+                df["fragile"]
+                .astype(str)
+                .str.lower()
+                .map({"true": True, "false": False, "1": True, "0": False})
+                .fillna(False)
+            )
             self.boxes = [
-                Box(id=int(r["id"]), length=float(r["length"]),
-                    width=float(r["width"]), height=float(r["height"]),
-                    weight_kg=float(r["weight_kg"]), fragile=bool(r["fragile"]))
+                Box(
+                    id=int(r["id"]),
+                    length=float(r["length"]),
+                    width=float(r["width"]),
+                    height=float(r["height"]),
+                    weight_kg=float(r["weight_kg"]),
+                    fragile=bool(r["fragile"]),
+                )
                 for _, r in df.iterrows()
             ]
             original_count = len(self.boxes)
-            self.boxes      = trim_unfittable_boxes(self.boxes, self.container)
-            dim_removed    = original_count - len(self.boxes)
+            self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+            dim_removed = original_count - len(self.boxes)
 
-            total_volume     = sum(b.volume for b in self.boxes)
+            total_volume = sum(b.volume for b in self.boxes)
             container_volume = self.container.volume
 
             if total_volume > container_volume:
-                self.boxes, utilization = trim_boxes_to_capacity(self.boxes, self.container)
+                self.boxes, utilization = trim_boxes_to_capacity(
+                    self.boxes, self.container
+                )
                 self._refresh_box_tree()
                 msg = f"Loaded {len(self.boxes)} boxes"
                 if dim_removed > 0:
-                    msg += f"\nRemoved {dim_removed} boxes that cannot fit dimensionally"
+                    msg += (
+                        f"\nRemoved {dim_removed} boxes that cannot fit dimensionally"
+                    )
                 msg += f"\nVolume utilization: {utilization:.1f}%"
                 messagebox.showinfo("Loaded", msg)
             else:
                 self._refresh_box_tree()
                 msg = f"Loaded {len(self.boxes)} boxes"
                 if dim_removed > 0:
-                    msg += f"\nRemoved {dim_removed} boxes that cannot fit dimensionally"
+                    msg += (
+                        f"\nRemoved {dim_removed} boxes that cannot fit dimensionally"
+                    )
                 messagebox.showinfo("Loaded", msg)
         except Exception as e:
             messagebox.showerror("Error", f"Could not load CSV:\n{e}")
 
     def _add_box_manual(self):
         try:
-            l  = float(self._box_entries["Length"].get())
-            w  = float(self._box_entries["Width"].get())
-            h  = float(self._box_entries["Height"].get())
+            l = float(self._box_entries["Length"].get())
+            w = float(self._box_entries["Width"].get())
+            h = float(self._box_entries["Height"].get())
             kg = float(self._box_entries["Weight(kg)"].get())
             if l <= 0 or w <= 0 or h <= 0 or kg < 0:
                 raise ValueError
             new_id = max((b.id for b in self.boxes), default=0) + 1
-            self.boxes.append(Box(id=new_id, length=l, width=w, height=h,
-                                  weight_kg=kg, fragile=self._fragile_var.get()))
+            self.boxes.append(
+                Box(
+                    id=new_id,
+                    length=l,
+                    width=w,
+                    height=h,
+                    weight_kg=kg,
+                    fragile=self._fragile_var.get(),
+                )
+            )
             self._refresh_box_tree()
             for e in self._box_entries.values():
                 e.delete(0, "end")
@@ -642,101 +833,251 @@ class App(tk.Tk):
     def _refresh_box_tree(self):
         self._box_tree.delete(*self._box_tree.get_children())
         for b in self.boxes:
-            self._box_tree.insert("", "end", values=(
-                b.id, b.length, b.width, b.height,
-                b.weight_kg, "Yes" if b.fragile else "No"))
+            self._box_tree.insert(
+                "",
+                "end",
+                values=(
+                    b.id,
+                    b.length,
+                    b.width,
+                    b.height,
+                    b.weight_kg,
+                    "Yes" if b.fragile else "No",
+                ),
+            )
         n = len(self.boxes)
         self._boxes_label.config(
             text=f"{n} box{'es' if n != 1 else ''} loaded  |  "
-                 f"{sum(1 for b in self.boxes if b.fragile)} fragile")
+            f"{sum(1 for b in self.boxes if b.fragile)} fragile"
+        )
 
     # ── TAB 3: Run ────────────────────────────────────────────────────────────
-
     def _build_run_tab(self, parent):
-        sec = self._section(parent, "Step 1 — Choose base algorithm")
-        tk.Label(sec, text="Run Greedy, Smart Greedy or Genetic Algorithm first:",
-                 bg=C["bg_panel"], fg=C["fg_lavender"],
-                 font=("Helvetica", 9)).pack(anchor="w")
+        nb = ttk.Notebook(parent)
+        nb.pack(fill="both", expand=True)
+
+        # =========================================================
+        # TAB 1 — FUNCTIONS
+        # =========================================================
+        tab1 = tk.Frame(nb, bg=C["bg_panel"])
+        nb.add(tab1, text="Functions")
+
+        sec = self._section(tab1, "Step 1 — Choose base algorithm")
+
+        tk.Label(
+            sec,
+            text="Run Greedy, Smart Greedy or Genetic Algorithm first:",
+            bg=C["bg_panel"],
+            fg=C["fg_lavender"],
+            font=("Helvetica", 9),
+        ).pack(anchor="w")
 
         bf = tk.Frame(sec, bg=C["bg_panel"])
-        bf.pack(fill="x", pady=6)
+        bf.pack(fill="x", pady=4)
+
         self._btn_smart_greedy = tk.Button(
-            bf, text="▶ Smart Greedy", font=("Helvetica", 10, "bold"),
-            bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
-            padx=10, pady=8, cursor="hand2", width=16,
-            command=self._run_smart_greedy)
-        self._btn_smart_greedy.pack(side="left", padx=(0, 8))
+            bf,
+            text="▶ Smart Greedy",
+            font=("Helvetica", 10, "bold"),
+            bg=C["purple_btn"],
+            fg=C["fg_white"],
+            relief="flat",
+            padx=8,
+            pady=6,
+            command=lambda: [
+                self._show_algo_description("smart_greedy"),
+                self._run_smart_greedy(),
+            ],
+        )
+        self._btn_smart_greedy.pack(side="left", padx=4)
 
         self._btn_greedy = tk.Button(
-            bf, text="▶ Greedy", font=("Helvetica", 10, "bold"),
-            bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
-            padx=10, pady=8, cursor="hand2", width=16,
-            command=lambda: self._run_algo("greedy"))
-        self._btn_greedy.pack(side="left", padx=(0, 8))
+            bf,
+            text="▶ Greedy",
+            font=("Helvetica", 10, "bold"),
+            bg=C["purple_btn"],
+            fg=C["fg_white"],
+            relief="flat",
+            padx=8,
+            pady=6,
+            command=lambda: [
+                self._show_algo_description("greedy"),
+                self._run_algo("greedy"),
+            ],
+        )
+        self._btn_greedy.pack(side="left", padx=4)
 
         self._btn_ga = tk.Button(
-            bf, text="▶ Genetic", font=("Helvetica", 10, "bold"),
-            bg=C["pink_hot"], fg=C["fg_white"], relief="flat",
-            padx=10, pady=8, cursor="hand2",
-            command=lambda: self._run_algo("ga"))
-        self._btn_ga.pack(side="left")
+            bf,
+            text="▶ Genetic",
+            font=("Helvetica", 10, "bold"),
+            bg=C["pink_hot"],
+            fg=C["fg_white"],
+            relief="flat",
+            padx=8,
+            pady=6,
+            command=lambda: [self._show_algo_description("ga"), self._run_algo("ga")],
+        )
+        self._btn_ga.pack(side="left", padx=4)
 
-        self._progress = ttk.Progressbar(sec, mode="indeterminate", length=400)
+        self._progress = ttk.Progressbar(sec, mode="indeterminate", length=300)
         self._progress.pack(fill="x", pady=4)
+
         self._result_label = tk.Label(
-            sec, text="No results yet.",
-            font=("Helvetica", 10), bg=C["bg_card"],
-            fg=C["green"], relief="flat", pady=8, wraplength=400)
+            sec,
+            text="No results yet.",
+            font=("Helvetica", 10),
+            bg=C["bg_card"],
+            fg=C["green"],
+        )
         self._result_label.pack(fill="x", pady=4)
 
-        sec2 = self._section(parent, "Step 2 — Improve with Simulated Annealing")
-        tk.Label(sec2, text="Apply SA to refine the baseline result:",
-                 bg=C["bg_panel"], fg=C["fg_lavender"],
-                 font=("Helvetica", 9)).pack(anchor="w")
+        # =========================================================
+        # TAB 2 — SIMULATED ANNEALING BODY
+        # =========================================================
+        tab2 = tk.Frame(nb, bg=C["bg_panel"])
+        nb.add(tab2, text="Simulated Annealing")
+
+        sec2 = self._section(tab2, "Step 2 — Improve with Simulated Annealing")
+
+        tk.Label(
+            sec2,
+            text="Apply SA to refine the baseline result:",
+            bg=C["bg_panel"],
+            fg=C["fg_lavender"],
+            font=("Helvetica", 9),
+        ).pack(anchor="w")
 
         btn_frame = tk.Frame(sec2, bg=C["bg_panel"])
-        btn_frame.pack(fill="x", pady=6)
+        btn_frame.pack(fill="x", pady=4)
+
         self._btn_sa = tk.Button(
-            btn_frame, text=" Improve with SA",
+            btn_frame,
+            text="Improve with SA",
             font=("Helvetica", 10, "bold"),
-            bg=C["pink_mid"], fg=C["fg_white"], relief="flat",
-            padx=10, pady=8, cursor="hand2",
-            state="disabled", command=self._run_sa)
-        self._btn_sa.pack(side="left", padx=(0, 8))
+            bg=C["pink_mid"],
+            fg=C["fg_white"],
+            relief="flat",
+            state="disabled",
+            command=self._run_sa,
+        )
+        self._btn_sa.pack(side="left", padx=4)
 
         self._btn_sa_interactive = tk.Button(
-            btn_frame, text="  SA with User Input",
+            btn_frame,
+            text="SA with User Input",
             font=("Helvetica", 10, "bold"),
-            bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
-            padx=10, pady=8, cursor="hand2",
-            state="disabled", command=self._run_sa_interactive)
-        self._btn_sa_interactive.pack(side="left")
+            bg=C["purple_btn"],
+            fg=C["fg_white"],
+            relief="flat",
+            state="disabled",
+            command=self._run_sa_interactive,
+        )
+        self._btn_sa_interactive.pack(side="left", padx=4)
 
         self._sa_label = tk.Label(
-            sec2, text="", font=("Helvetica", 10),
-            bg=C["bg_card"], fg=C["amber"],
-            relief="flat", pady=6, wraplength=400)
-        self._sa_label.pack(fill="x")
+            sec2, text="", font=("Helvetica", 10), bg=C["bg_card"], fg=C["amber"]
+        )
+        self._sa_label.pack(fill="x", pady=4)
 
-        sec3 = self._section(parent, "SA Parameters")
-        self._sa_params: dict = {}
-        for lbl, default in [
-            ("Start Temp",  "150"),
-            ("End Temp",    "5"),
-            ("Cooling Rate","0.97"),
-            ("Iters/Step",  "6"),
-            ("Target %",    "80"),
-        ]:
-            row = tk.Frame(sec3, bg=C["bg_panel"])
-            row.pack(fill="x", pady=1)
-            tk.Label(row, text=lbl + ":", bg=C["bg_panel"],
-                     fg=C["fg_lavender"], font=("Helvetica", 9),
-                     width=14, anchor="w").pack(side="left")
-            e = tk.Entry(row, width=10, font=("Helvetica", 9),
-                         bg=C["bg_light"], fg=C["fg_dark"], relief="flat")
-            e.insert(0, default)
-            e.pack(side="left", padx=4)
-            self._sa_params[lbl] = e
+        # =========================================================
+        # TAB 3 — PARAMETERS (VERTICAL LAYOUT)
+        # =========================================================
+        tab3 = tk.Frame(nb, bg=C["bg_panel"])
+        nb.add(tab3, text="SA Parameters")
+
+        # Main container frame
+        params_container = tk.Frame(tab3, bg=C["bg_panel"])
+        params_container.pack(fill="both", expand=True, padx=12, pady=12)
+
+        # Title
+        tk.Label(
+            params_container,
+            text="Simulated Annealing Parameters",
+            font=("Helvetica", 12, "bold"),
+            bg=C["bg_panel"],
+            fg=C["pink_soft"],
+        ).pack(anchor="w", pady=(0, 12))
+
+        # Create a canvas with scrollbar for vertical scrolling
+        canvas = tk.Canvas(params_container, bg=C["bg_panel"], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(
+            params_container, orient="vertical", command=canvas.yview
+        )
+        scrollable_frame = tk.Frame(canvas, bg=C["bg_panel"])
+
+        scrollable_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Parameter entries (vertical layout)
+        self._sa_params = {}
+
+        param_fields = [
+            ("Start Temp", "150", "Initial temperature (higher = more exploration)"),
+            ("End Temp", "5", "Final temperature (lower = more refinement)"),
+            ("Cooling Rate", "0.97", "Cooling factor (0.8-0.99 typical)"),
+            ("Iters/Step", "6", "Number of iterations at each temperature"),
+            ("Target %", "80", "Early stop target percentage"),
+        ]
+
+        for field, default_value, tooltip in param_fields:
+            # Create frame for each parameter (vertical layout)
+            param_frame = tk.Frame(scrollable_frame, bg=C["bg_panel"], pady=8)
+            param_frame.pack(fill="x", padx=12, pady=(0, 8))
+
+            # Label on top (vertical)
+            tk.Label(
+                param_frame,
+                text=field + ":",
+                font=("Helvetica", 10, "bold"),
+                bg=C["bg_panel"],
+                fg=C["fg_lavender"],
+                anchor="w",
+            ).pack(anchor="w", pady=(0, 4))
+
+            # Entry field
+            entry = tk.Entry(
+                param_frame,
+                font=("Helvetica", 10),
+                width=20,
+                bg=C["bg_light"],
+                fg=C["fg_dark"],
+                relief="flat",
+                insertbackground=C["purple_dark"],
+            )
+            entry.insert(0, default_value)
+            entry.pack(anchor="w", pady=(0, 4))
+
+            # Tooltip/hint
+            tk.Label(
+                param_frame,
+                text=tooltip,
+                font=("Helvetica", 8, "italic"),
+                bg=C["bg_panel"],
+                fg=C["purple_hi"],
+                anchor="w",
+                wraplength=350,
+            ).pack(anchor="w")
+
+            self._sa_params[field] = entry
+
+        # Add some spacing at the bottom
+        tk.Frame(scrollable_frame, height=20, bg=C["bg_panel"]).pack()
+
+        # Bind mousewheel to canvas for scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
 
     # ── TAB 4: Edit Placed Boxes ──────────────────────────────────────────────
 
@@ -744,17 +1085,29 @@ class App(tk.Tk):
         tk.Label(
             parent,
             text="After running an algorithm, select a placed box\n"
-                 "to flip its orientation or change its position.\n"
-                 "Only non-fragile boxes can be modified.",
-            bg=C["bg_panel"], fg=C["purple_hi"],
-            font=("Helvetica", 9), justify="left", pady=6,
+            "to flip its orientation or change its position.\n"
+            "Only non-fragile boxes can be modified.",
+            bg=C["bg_panel"],
+            fg=C["purple_hi"],
+            font=("Helvetica", 9),
+            justify="left",
+            pady=6,
         ).pack(padx=12, anchor="w")
 
         sec = self._section(parent, "Placed boxes")
         cols = ("id", "x", "y", "z", "L", "W", "H", "kg", "fragile")
         self._placed_tree = ttk.Treeview(sec, columns=cols, show="headings", height=10)
-        widths = {"id": 40, "x": 60, "y": 60, "z": 60,
-                  "L": 55, "W": 55, "H": 55, "kg": 55, "fragile": 55}
+        widths = {
+            "id": 40,
+            "x": 60,
+            "y": 60,
+            "z": 60,
+            "L": 55,
+            "W": 55,
+            "H": 55,
+            "kg": 55,
+            "fragile": 55,
+        }
         for col in cols:
             self._placed_tree.heading(col, text=col)
             self._placed_tree.column(col, width=widths.get(col, 55), anchor="center")
@@ -767,15 +1120,27 @@ class App(tk.Tk):
         row = tk.Frame(parent, bg=C["bg_panel"])
         row.pack(fill="x", padx=8, pady=6)
         self._btn_flip = tk.Button(
-            row, text="✏  Flip / Reposition Selected Box",
+            row,
+            text="✏  Flip / Reposition Selected Box",
             font=("Helvetica", 9, "bold"),
-            bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
-            padx=10, pady=6, cursor="hand2", state="disabled",
-            command=self._flip_box)
+            bg=C["purple_btn"],
+            fg=C["fg_white"],
+            relief="flat",
+            padx=10,
+            pady=6,
+            cursor="hand2",
+            state="disabled",
+            command=self._flip_box,
+        )
         self._btn_flip.pack(fill="x")
         self._edit_msg = tk.Label(
-            parent, text="", font=("Helvetica", 9),
-            bg=C["bg_panel"], fg=C["purple_hi"], wraplength=400)
+            parent,
+            text="",
+            font=("Helvetica", 9),
+            bg=C["bg_panel"],
+            fg=C["purple_hi"],
+            wraplength=400,
+        )
         self._edit_msg.pack(padx=12, anchor="w")
 
     def _on_placed_select(self, event):
@@ -783,27 +1148,32 @@ class App(tk.Tk):
         if not sel:
             self._btn_flip.config(state="disabled")
             return
-        vals       = self._placed_tree.item(sel[0])["values"]
-        box_id     = vals[0]
+        vals = self._placed_tree.item(sel[0])["values"]
+        box_id = vals[0]
         is_fragile = vals[8] == "Yes"
         self.selected_box_id = box_id
         if self.last_result:
-            self._render_3d(self.last_result,
-                            f"{self.last_algo} — Box #{box_id} selected",
-                            highlight_id=box_id)
+            self._render_3d(
+                self.last_result,
+                f"{self.last_algo} — Box #{box_id} selected",
+                highlight_id=box_id,
+            )
         if is_fragile:
             self._btn_flip.config(state="disabled")
             self._edit_msg.config(text="Fragile boxes cannot be modified.")
         else:
             self._btn_flip.config(state="normal")
             self._edit_msg.config(
-                text=f"Box #{box_id} selected. Click Flip/Reposition to edit.")
+                text=f"Box #{box_id} selected. Click Flip/Reposition to edit."
+            )
 
     def _flip_box(self):
         if not self.selected_box_id or not self.last_result:
             return
-        pb      = next((p for p in self.last_result if p["id"] == self.selected_box_id), None)
-        box_obj = next((b for b in self.boxes      if b.id   == self.selected_box_id), None)
+        pb = next(
+            (p for p in self.last_result if p["id"] == self.selected_box_id), None
+        )
+        box_obj = next((b for b in self.boxes if b.id == self.selected_box_id), None)
         if not pb or not box_obj:
             return
 
@@ -811,13 +1181,15 @@ class App(tk.Tk):
             self._forced_orientations[self.selected_box_id] = new_ori
             seq = [b for b in self.boxes if b.id in {p["id"] for p in self.last_result}]
             placed, util = pack_sequence_with_forced(
-                seq, self.container, self._forced_orientations)
+                seq, self.container, self._forced_orientations
+            )
             self.last_result = placed
-            self.last_util   = util
+            self.last_util = util
             self._refresh_placed_tree()
             self._render_3d(placed, f"{self.last_algo} (edited) — {util:.1f}%")
             self._edit_msg.config(
-                text=f"Box #{self.selected_box_id} updated! Utilization: {util:.2f}%")
+                text=f"Box #{self.selected_box_id} updated! Utilization: {util:.2f}%"
+            )
 
         FlipBoxDialog(self, pb, box_obj, self.container, on_apply)
 
@@ -828,9 +1200,21 @@ class App(tk.Tk):
         for p in self.last_result:
             x, y, z = p["pos"]
             l, w, h = p["dim"]
-            self._placed_tree.insert("", "end", values=(
-                p["id"], round(x, 1), round(y, 1), round(z, 1),
-                l, w, h, p["weight"], "Yes" if p["fragile"] else "No"))
+            self._placed_tree.insert(
+                "",
+                "end",
+                values=(
+                    p["id"],
+                    round(x, 1),
+                    round(y, 1),
+                    round(z, 1),
+                    l,
+                    w,
+                    h,
+                    p["weight"],
+                    "Yes" if p["fragile"] else "No",
+                ),
+            )
 
     # ── RIGHT PANEL: 3-D Visualisation ────────────────────────────────────────
 
@@ -838,30 +1222,43 @@ class App(tk.Tk):
         top_row = tk.Frame(parent, bg=C["bg_card"])
         top_row.pack(fill="x", padx=8, pady=(8, 0))
         tk.Label(
-            top_row, text="3D Packing Visualization",
+            top_row,
+            text="3D Packing Visualization",
             font=("Helvetica", 12, "bold"),
-            bg=C["bg_card"], fg=C["pink_soft"],
+            bg=C["bg_card"],
+            fg=C["pink_soft"],
         ).pack(side="left")
 
         angle_frame = tk.Frame(top_row, bg=C["bg_card"])
         angle_frame.pack(side="right")
-        for label, elev, azim in [("Front", 0, 0), ("Side", 0, 90),
-                                   ("Top", 90, 0),  ("ISO", 25, 45)]:
+        for label, elev, azim in [
+            ("Front", 0, 0),
+            ("Side", 0, 90),
+            ("Top", 90, 0),
+            ("ISO", 25, 45),
+        ]:
             tk.Button(
-                angle_frame, text=label, font=("Helvetica", 8),
-                bg=C["purple_btn"], fg=C["fg_white"], relief="flat",
-                padx=6, pady=2, cursor="hand2",
+                angle_frame,
+                text=label,
+                font=("Helvetica", 8),
+                bg=C["purple_btn"],
+                fg=C["fg_white"],
+                relief="flat",
+                padx=6,
+                pady=2,
+                cursor="hand2",
                 command=lambda e=elev, a=azim: self._set_view_angle(e, a),
             ).pack(side="left", padx=2)
 
         self._fig = plt.Figure(figsize=(7.5, 6), dpi=90, facecolor=C["bg_card"])
-        self._ax  = self._fig.add_subplot(111, projection="3d")
+        self._ax = self._fig.add_subplot(111, projection="3d")
         self._ax.set_facecolor(C["bg_card"])
         self._ax.tick_params(colors=C["fg_lavender"], labelsize=7)
         for spine in self._ax.spines.values():
             spine.set_edgecolor(C["purple_hi"])
-        self._ax.set_title("Run an algorithm to see the result",
-                            fontsize=10, color=C["purple_hi"])
+        self._ax.set_title(
+            "Run an algorithm to see the result", fontsize=10, color=C["purple_hi"]
+        )
 
         self._canvas = FigureCanvasTkAgg(self._fig, master=parent)
         self._canvas.get_tk_widget().pack(fill="both", expand=True, padx=8)
@@ -874,17 +1271,22 @@ class App(tk.Tk):
         self._canvas.mpl_connect("scroll_event", self._on_scroll)
 
         self._stats_bar = tk.Label(
-            parent, text="",
+            parent,
+            text="",
             font=("Helvetica", 10, "bold"),
-            bg=C["purple_dark"], fg=C["pink_hot"],
-            relief="flat", pady=6,
+            bg=C["purple_dark"],
+            fg=C["pink_hot"],
+            relief="flat",
+            pady=6,
         )
         self._stats_bar.pack(fill="x", padx=8, pady=(2, 8))
 
         tk.Label(
             parent,
             text="🖱 Left-drag: rotate  |  Right-drag / scroll: zoom  |  Toolbar: save / pan",
-            font=("Helvetica", 8), fg=C["purple_hi"], bg=C["bg_card"],
+            font=("Helvetica", 8),
+            fg=C["purple_hi"],
+            bg=C["bg_card"],
         ).pack(pady=(0, 4))
 
     def _set_view_angle(self, elev, azim):
@@ -892,7 +1294,7 @@ class App(tk.Tk):
         self._canvas.draw()
 
     def _on_scroll(self, event):
-        ax     = self._ax
+        ax = self._ax
         factor = 0.9 if event.button == "up" else 1.1
         for get_lim, set_lim in [
             (ax.get_xlim, ax.set_xlim),
@@ -900,8 +1302,8 @@ class App(tk.Tk):
             (ax.get_zlim, ax.set_zlim),
         ]:
             lo, hi = get_lim()
-            mid    = (lo + hi) / 2
-            half   = (hi - lo) / 2 * factor
+            mid = (lo + hi) / 2
+            half = (hi - lo) / 2 * factor
             set_lim(mid - half, mid + half)
         self._canvas.draw_idle()
 
@@ -916,35 +1318,38 @@ class App(tk.Tk):
             return False
 
         original_count = len(self.boxes)
-        self.boxes      = trim_unfittable_boxes(self.boxes, self.container)
-        dim_removed    = original_count - len(self.boxes)
+        self.boxes = trim_unfittable_boxes(self.boxes, self.container)
+        dim_removed = original_count - len(self.boxes)
         if dim_removed > 0:
             print(f"Removed {dim_removed} dimensionally unfittable boxes")
 
-        total_volume     = sum(b.volume for b in self.boxes)
+        total_volume = sum(b.volume for b in self.boxes)
         container_volume = self.container.volume
         if total_volume > container_volume:
             response = messagebox.askyesno(
                 "Volume Exceeds Capacity",
                 f"Total box volume ({total_volume:,.0f} cm³) exceeds container "
                 f"capacity ({container_volume:,.0f} cm³).\n\n"
-                f"Trim boxes to fit? (Yes = keep in order until full, No = keep all)"
+                f"Trim boxes to fit? (Yes = keep in order until full, No = keep all)",
             )
             if response:
                 self.boxes, utilization = trim_boxes_to_capacity(
-                    self.boxes, self.container)
+                    self.boxes, self.container
+                )
                 self._refresh_box_tree()
                 messagebox.showinfo(
                     "Boxes Trimmed",
                     f"Trimmed to {len(self.boxes)} boxes\n"
                     f"Volume: {sum(b.volume for b in self.boxes):,.0f} / "
                     f"{container_volume:,.0f} cm³\n"
-                    f"Utilization: {utilization:.1f}%"
+                    f"Utilization: {utilization:.1f}%",
                 )
 
         if not self.boxes:
             messagebox.showwarning(
-                "No Boxes", "No boxes remain after trimming. Please load different boxes.")
+                "No Boxes",
+                "No boxes remain after trimming. Please load different boxes.",
+            )
             return False
         return True
 
@@ -965,12 +1370,19 @@ class App(tk.Tk):
                 placed, util, _ = greedy_pack(self.boxes, self.container)
                 name = "Greedy BFD"
             else:
+
                 def prog(gen, total, best):
                     self._result_label.config(
-                        text=f"GA: gen {gen}/{total}  best={best:.1f}%")
+                        text=f"GA: gen {gen}/{total}  best={best:.1f}%"
+                    )
+
                 placed, util, _, _ = genetic_algorithm(
-                    self.boxes, self.container,
-                    pop_size=30, generations=50, progress_cb=prog)
+                    self.boxes,
+                    self.container,
+                    pop_size=30,
+                    generations=50,
+                    progress_cb=prog,
+                )
                 name = "Genetic Algorithm"
             rt = time.time() - t0
             self.after(0, lambda: self._on_algo_done(placed, util, name, rt))
@@ -979,16 +1391,21 @@ class App(tk.Tk):
 
     def _on_algo_done(self, placed, util, name, rt):
         self._progress.stop()
-        for btn in (self._btn_greedy, self._btn_ga,
-                    self._btn_sa, self._btn_sa_interactive):
+        for btn in (
+            self._btn_greedy,
+            self._btn_ga,
+            self._btn_sa,
+            self._btn_sa_interactive,
+        ):
             btn.config(state="normal")
         self._result_label.config(
             text=f" {name} done!\n"
-                 f"Placed: {len(placed)}/{len(self.boxes)}  |  "
-                 f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s")
+            f"Placed: {len(placed)}/{len(self.boxes)}  |  "
+            f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s"
+        )
         self.last_result = placed
-        self.last_util   = util
-        self.last_algo   = name
+        self.last_util = util
+        self.last_algo = name
         self._render_3d(placed, f"{name} — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
@@ -996,40 +1413,57 @@ class App(tk.Tk):
         if not self._validate_ready():
             return
         self._progress.start()
-        for btn in (self._btn_greedy, self._btn_ga,
-                    self._btn_sa, self._btn_smart_greedy):
+        for btn in (
+            self._btn_greedy,
+            self._btn_ga,
+            self._btn_sa,
+            self._btn_smart_greedy,
+        ):
             btn.config(state="disabled")
         self._result_label.config(
-            text="Smart Greedy running (trying multiple strategies)...")
+            text="Smart Greedy running (trying multiple strategies)..."
+        )
         self._forced_orientations = {}
 
         def task():
             t0 = time.time()
 
             def prog(current, total, msg):
-                self.after(0, lambda: self._result_label.config(
-                    text=f"Smart Greedy: {msg} ({current+1}/{total})"))
+                self.after(
+                    0,
+                    lambda: self._result_label.config(
+                        text=f"Smart Greedy: {msg} ({current+1}/{total})"
+                    ),
+                )
 
             placed, util, strategy = smart_greedy_pack(
-                self.boxes, self.container, progress_cb=prog)
+                self.boxes, self.container, progress_cb=prog
+            )
             rt = time.time() - t0
-            self.after(0, lambda: self._on_smart_greedy_done(
-                placed, util, strategy, rt))
+            self.after(
+                0, lambda: self._on_smart_greedy_done(placed, util, strategy, rt)
+            )
 
         threading.Thread(target=task, daemon=True).start()
 
     def _on_smart_greedy_done(self, placed, util, strategy, rt):
         self._progress.stop()
-        for btn in (self._btn_greedy, self._btn_ga, self._btn_sa,
-                    self._btn_smart_greedy, self._btn_sa_interactive):
+        for btn in (
+            self._btn_greedy,
+            self._btn_ga,
+            self._btn_sa,
+            self._btn_smart_greedy,
+            self._btn_sa_interactive,
+        ):
             btn.config(state="normal")
         self._result_label.config(
             text=f"Smart Greedy ({strategy}) done!\n"
-                 f"Placed: {len(placed)}/{len(self.boxes)}  |  "
-                 f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s")
+            f"Placed: {len(placed)}/{len(self.boxes)}  |  "
+            f"Utilization: {util:.2f}%  |  Time: {rt:.1f}s"
+        )
         self.last_result = placed
-        self.last_util   = util
-        self.last_algo   = f"Smart Greedy ({strategy})"
+        self.last_util = util
+        self.last_algo = f"Smart Greedy ({strategy})"
         self._render_3d(placed, f"Smart Greedy ({strategy}) — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
@@ -1037,14 +1471,15 @@ class App(tk.Tk):
 
     def _run_sa(self):
         if not self.last_result:
-            messagebox.showwarning("No Baseline",
-                                   "Run Greedy, Smart Greedy, or GA first.")
+            messagebox.showwarning(
+                "No Baseline", "Run Greedy, Smart Greedy, or GA first."
+            )
             return
         try:
             T_start = float(self._sa_params["Start Temp"].get())
-            T_end   = float(self._sa_params["End Temp"].get())
+            T_end = float(self._sa_params["End Temp"].get())
             cooling = float(self._sa_params["Cooling Rate"].get())
-            iters   = int(self._sa_params["Iters/Step"].get())
+            iters = int(self._sa_params["Iters/Step"].get())
         except ValueError:
             messagebox.showerror("Invalid Params", "Check SA parameter values.")
             return
@@ -1054,22 +1489,30 @@ class App(tk.Tk):
         self._sa_label.config(text="SA running…")
         last_ids = [p["id"] for p in self.last_result]
         init_seq = sorted(
-            self.boxes,
-            key=lambda b: last_ids.index(b.id) if b.id in last_ids else 999)
+            self.boxes, key=lambda b: last_ids.index(b.id) if b.id in last_ids else 999
+        )
 
         def task():
             t0 = time.time()
 
             def prog(T, T0, best):
-                self.after(0, lambda: self._sa_label.config(
-                    text=f"SA: T={T:.2f}  best={best:.2f}%"))
+                self.after(
+                    0,
+                    lambda: self._sa_label.config(
+                        text=f"SA: T={T:.2f}  best={best:.2f}%"
+                    ),
+                )
 
             placed, util, _ = simulated_annealing(
-                self.boxes, self.container,
+                self.boxes,
+                self.container,
                 initial_sequence=init_seq,
-                T_start=T_start, T_end=T_end,
-                cooling=cooling, iters_per_step=iters,
-                progress_cb=prog)
+                T_start=T_start,
+                T_end=T_end,
+                cooling=cooling,
+                iters_per_step=iters,
+                progress_cb=prog,
+            )
             rt = time.time() - t0
             self.after(0, lambda: self._on_sa_done(placed, util, rt))
 
@@ -1080,24 +1523,26 @@ class App(tk.Tk):
         self._btn_sa.config(state="normal")
         imp = util - self.last_util
         self._sa_label.config(
-            text=f" SA done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s")
+            text=f" SA done!  {util:.2f}%  (+{imp:.2f}% improvement)  {rt:.1f}s"
+        )
         self.last_result = placed
-        self.last_util   = util
-        self.last_algo   = "SA Improved"
+        self.last_util = util
+        self.last_algo = "SA Improved"
         self._render_3d(placed, f"SA Improved — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
     def _run_sa_interactive(self):
         if not self.last_result:
-            messagebox.showwarning("No Baseline",
-                                   "Run Greedy, Smart Greedy, or GA first.")
+            messagebox.showwarning(
+                "No Baseline", "Run Greedy, Smart Greedy, or GA first."
+            )
             return
         try:
             T_start = float(self._sa_params["Start Temp"].get())
-            T_end   = float(self._sa_params["End Temp"].get())
+            T_end = float(self._sa_params["End Temp"].get())
             cooling = float(self._sa_params["Cooling Rate"].get())
-            iters   = int(self._sa_params["Iters/Step"].get())
-            target  = float(self._sa_params["Target %"].get())
+            iters = int(self._sa_params["Iters/Step"].get())
+            target = float(self._sa_params["Target %"].get())
         except ValueError:
             messagebox.showerror("Invalid Params", "Check SA parameter values.")
             return
@@ -1109,8 +1554,8 @@ class App(tk.Tk):
 
         last_ids = [p["id"] for p in self.last_result]
         init_seq = sorted(
-            self.boxes,
-            key=lambda b: last_ids.index(b.id) if b.id in last_ids else 999)
+            self.boxes, key=lambda b: last_ids.index(b.id) if b.id in last_ids else 999
+        )
 
         def user_ask_cb(current_util, pct_of_max, iteration):
             response = [None]
@@ -1122,7 +1567,7 @@ class App(tk.Tk):
                     f"at iteration {iteration}!\n"
                     f"Current utilization: {current_util:.1f}%\n\n"
                     f"Continue searching for better solution?",
-                    parent=self
+                    parent=self,
                 )
 
             self.after(0, ask)
@@ -1135,18 +1580,26 @@ class App(tk.Tk):
             t0 = time.time()
 
             def prog(T, best, iteration):
-                self.after(0, lambda: self._sa_label.config(
-                    text=f"SA: T={T:.2f}  iter={iteration}  best={best:.1f}%"))
+                self.after(
+                    0,
+                    lambda: self._sa_label.config(
+                        text=f"SA: T={T:.2f}  iter={iteration}  best={best:.1f}%"
+                    ),
+                )
 
             try:
                 placed, util, _ = simulated_annealing_interactive(
-                    self.boxes, self.container,
+                    self.boxes,
+                    self.container,
                     initial_sequence=init_seq,
-                    T_start=T_start, T_end=T_end,
-                    cooling=cooling, iters_per_step=iters,
+                    T_start=T_start,
+                    T_end=T_end,
+                    cooling=cooling,
+                    iters_per_step=iters,
                     target_pct=target,
                     progress_cb=prog,
-                    user_ask_cb=user_ask_cb)
+                    user_ask_cb=user_ask_cb,
+                )
                 rt = time.time() - t0
                 self.after(0, lambda: self._on_sa_interactive_done(placed, util, rt))
             except Exception as e:
@@ -1161,10 +1614,11 @@ class App(tk.Tk):
         imp = util - self.last_util
         self._sa_label.config(
             text=f"SA Interactive done!  {util:.2f}%  "
-                 f"(+{imp:.2f}% improvement)  {rt:.1f}s")
+            f"(+{imp:.2f}% improvement)  {rt:.1f}s"
+        )
         self.last_result = placed
-        self.last_util   = util
-        self.last_algo   = "SA Interactive"
+        self.last_util = util
+        self.last_algo = "SA Interactive"
         self._render_3d(placed, f"SA Interactive — {util:.1f}% utilization")
         self._refresh_placed_tree()
 
@@ -1173,8 +1627,7 @@ class App(tk.Tk):
         self._btn_sa.config(state="normal")
         self._btn_sa_interactive.config(state="normal", text=" SA with User Input")
         self._sa_label.config(text=f"Error: {error_msg[:50]}...")
-        messagebox.showerror("SA Interactive Error",
-                             f"An error occurred:\n{error_msg}")
+        messagebox.showerror("SA Interactive Error", f"An error occurred:\n{error_msg}")
 
     # ── 3-D RENDER ────────────────────────────────────────────────────────────
 
@@ -1185,31 +1638,69 @@ class App(tk.Tk):
         c = self.container
 
         verts = [
-            (0, 0, 0),          (c.length, 0, 0),
-            (c.length, c.width, 0), (0, c.width, 0),
-            (0, 0, c.height),   (c.length, 0, c.height),
-            (c.length, c.width, c.height), (0, c.width, c.height),
+            (0, 0, 0),
+            (c.length, 0, 0),
+            (c.length, c.width, 0),
+            (0, c.width, 0),
+            (0, 0, c.height),
+            (c.length, 0, c.height),
+            (c.length, c.width, c.height),
+            (0, c.width, c.height),
         ]
-        edges = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),
-                 (0,4),(1,5),(2,6),(3,7)]
+        edges = [
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+        ]
         for e in edges:
             p1, p2 = verts[e[0]], verts[e[1]]
-            self._ax.plot([p1[0], p2[0]], [p1[1], p2[1]], [p1[2], p2[2]],
-                          color=C["purple_hi"], alpha=0.35, linewidth=0.8)
+            self._ax.plot(
+                [p1[0], p2[0]],
+                [p1[1], p2[1]],
+                [p1[2], p2[2]],
+                color=C["purple_hi"],
+                alpha=0.35,
+                linewidth=0.8,
+            )
 
-        normal_cols  = ["#efe8ff", "#ddcffb", "#cfbcfa", "#bda0fa",
-                        "#ab8cf5", "#9b7fe6", "#8664ca", "#6c4aa6"]
+        normal_cols = [
+            "#efe8ff",
+            "#ddcffb",
+            "#cfbcfa",
+            "#bda0fa",
+            "#ab8cf5",
+            "#9b7fe6",
+            "#8664ca",
+            "#6c4aa6",
+        ]
         fragile_cols = ["#bda0fa", "#ab8cf5", "#8664ca"]
         ni = fi = 0
 
         for pb in placed:
-            is_hl = (highlight_id is not None and pb["id"] == highlight_id)
+            is_hl = highlight_id is not None and pb["id"] == highlight_id
             if pb["fragile"]:
-                color = fragile_cols[fi % len(fragile_cols)]; fi += 1
+                color = fragile_cols[fi % len(fragile_cols)]
+                fi += 1
             else:
-                color = normal_cols[ni % len(normal_cols)];  ni += 1
-            draw_box_3d(self._ax, pb["pos"], pb["dim"], color,
-                        alpha=0.85 if is_hl else 0.65, highlight=is_hl)
+                color = normal_cols[ni % len(normal_cols)]
+                ni += 1
+            draw_box_3d(
+                self._ax,
+                pb["pos"],
+                pb["dim"],
+                color,
+                alpha=0.85 if is_hl else 0.65,
+                highlight=is_hl,
+            )
 
         self._ax.view_init(elev=elev, azim=azim)
         self._ax.set_xlim(0, c.length)
@@ -1219,8 +1710,7 @@ class App(tk.Tk):
         self._ax.set_ylabel("Width  (cm)", fontsize=7, color=C["fg_lavender"])
         self._ax.set_zlabel("Height (cm)", fontsize=7, color=C["fg_lavender"])
         self._ax.tick_params(colors=C["fg_lavender"], labelsize=6)
-        self._ax.set_title(title, fontsize=9, fontweight="bold",
-                           color=C["pink_soft"])
+        self._ax.set_title(title, fontsize=9, fontweight="bold", color=C["pink_soft"])
 
         handles = [
             mpatches.Patch(color="#ab8cf5", label="Normal"),
@@ -1228,19 +1718,26 @@ class App(tk.Tk):
         ]
         if highlight_id:
             handles.append(
-                mpatches.Patch(color="gold", label=f"Selected #{highlight_id}"))
-        self._ax.legend(handles=handles, loc="upper left", fontsize=7,
-                        facecolor=C["bg_card"], edgecolor=C["purple_hi"],
-                        labelcolor=C["fg_lavender"])
+                mpatches.Patch(color="gold", label=f"Selected #{highlight_id}")
+            )
+        self._ax.legend(
+            handles=handles,
+            loc="upper left",
+            fontsize=7,
+            facecolor=C["bg_card"],
+            edgecolor=C["purple_hi"],
+            labelcolor=C["fg_lavender"],
+        )
         self._canvas.draw()
 
         vol_used = sum(p["dim"][0] * p["dim"][1] * p["dim"][2] for p in placed)
         util_pct = vol_used / c.volume * 100
         self._stats_bar.config(
             text=f"Container: {c.name}   |   "
-                 f"Boxes: {len(placed)}/{len(self.boxes)}   |   "
-                 f"{vol_used/1e6:.3f} m³ / {c.volume/1e6:.3f} m³   |   "
-                 f"Utilization: {util_pct:.2f}%")
+            f"Boxes: {len(placed)}/{len(self.boxes)}   |   "
+            f"{vol_used/1e6:.3f} m³ / {c.volume/1e6:.3f} m³   |   "
+            f"Utilization: {util_pct:.2f}%"
+        )
 
 
 # ─────────────────────────────────────────────
