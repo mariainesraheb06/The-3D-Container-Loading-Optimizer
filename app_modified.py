@@ -383,8 +383,18 @@ class App(tk.Tk):
             "ga": "🧬 **Genetic Algorithm**\n\nEvolutionary approach for near-optimal 3D packing.\nMore thorough exploration than greedy methods.\n\n➤ Creates population of random packing orders\n➤ Selects best solutions (highest space usage)\n➤ Crossover & mutation to evolve better orders\n➤ Best for: High-quality solutions when speed less critical",
         }
         desc = descriptions.get(algo_name, "Select an algorithm to see description.")
-        # Update the result label with description (instead of "No results yet")
         self._result_label.config(
+            text=desc, fg=C["fg_lavender"], justify="left", anchor="w", wraplength=500
+        )
+
+    def _show_sa_description(self, sa_type):
+        """Show description for Simulated Annealing options"""
+        descriptions = {
+            "sa": "🔥 **Simulated Annealing**\n\nImproves baseline solution by accepting worse moves to escape local optima.\n\n➤ Starts with high temperature (accepts many bad moves)\n➤ Gradually cools down (accepts fewer bad moves)\n➤ Balances exploration vs exploitation\n➤ Best for: Refining greedy/GA solutions for 3D bin packing",
+            "sa_interactive": "🎮 **SA with User Input**\n\nInteractive mode where you can adjust cooling parameters during optimization.\n\n➤ Watch temperature drop in real-time\n➤ Tune acceptance probability on-the-fly\n➤ See which item swaps improve packing\n➤ Best for: Learning how SA works and manual fine-tuning",
+        }
+        desc = descriptions.get(sa_type, "Select SA option to see description.")
+        self._sa_label.config(
             text=desc, fg=C["fg_lavender"], justify="left", anchor="w", wraplength=500
         )
 
@@ -866,59 +876,93 @@ class App(tk.Tk):
 
         tk.Label(
             sec,
-            text="Run Greedy, Smart Greedy or Genetic Algorithm first:",
+            text="▼ Click buttons below for options ▼",
             bg=C["bg_panel"],
             fg=C["fg_lavender"],
-            font=("Helvetica", 9),
-        ).pack(anchor="w")
+            font=("Helvetica", 9, "italic"),
+        ).pack(anchor="w", pady=(0, 4))
 
         bf = tk.Frame(sec, bg=C["bg_panel"])
         bf.pack(fill="x", pady=4)
 
-        self._btn_smart_greedy = tk.Button(
+        # ========== SMART GREEDY DROPDOWN ==========
+        self._btn_smart_greedy = tk.Menubutton(
             bf,
-            text="▶ Smart Greedy",
+            text="▼ Smart Greedy",
             font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"],
             fg=C["fg_white"],
             relief="flat",
             padx=8,
             pady=6,
-            command=lambda: [
-                self._show_algo_description("smart_greedy"),
-                self._run_smart_greedy(),
-            ],
+            direction="below",
         )
         self._btn_smart_greedy.pack(side="left", padx=4)
 
-        self._btn_greedy = tk.Button(
+        smart_greedy_menu = tk.Menu(
+            self._btn_smart_greedy, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"]
+        )
+        self._btn_smart_greedy.config(menu=smart_greedy_menu)
+        smart_greedy_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_algo_description("smart_greedy"),
+        )
+        smart_greedy_menu.add_separator()
+        smart_greedy_menu.add_command(
+            label="▶ Run Algorithm", command=self._run_smart_greedy
+        )
+
+        # ========== GREEDY DROPDOWN ==========
+        self._btn_greedy = tk.Menubutton(
             bf,
-            text="▶ Greedy",
+            text="▼ Greedy",
             font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"],
             fg=C["fg_white"],
             relief="flat",
             padx=8,
             pady=6,
-            command=lambda: [
-                self._show_algo_description("greedy"),
-                self._run_algo("greedy"),
-            ],
+            direction="below",
         )
         self._btn_greedy.pack(side="left", padx=4)
 
-        self._btn_ga = tk.Button(
+        greedy_menu = tk.Menu(
+            self._btn_greedy, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"]
+        )
+        self._btn_greedy.config(menu=greedy_menu)
+        greedy_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_algo_description("greedy"),
+        )
+        greedy_menu.add_separator()
+        greedy_menu.add_command(
+            label="▶ Run Algorithm", command=lambda: self._run_algo("greedy")
+        )
+
+        # ========== GENETIC DROPDOWN ==========
+        self._btn_ga = tk.Menubutton(
             bf,
-            text="▶ Genetic",
+            text="▼ Genetic",
             font=("Helvetica", 10, "bold"),
             bg=C["pink_hot"],
             fg=C["fg_white"],
             relief="flat",
             padx=8,
             pady=6,
-            command=lambda: [self._show_algo_description("ga"), self._run_algo("ga")],
+            direction="below",
         )
         self._btn_ga.pack(side="left", padx=4)
+
+        ga_menu = tk.Menu(self._btn_ga, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"])
+        self._btn_ga.config(menu=ga_menu)
+        ga_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_algo_description("ga"),
+        )
+        ga_menu.add_separator()
+        ga_menu.add_command(
+            label="▶ Run Algorithm", command=lambda: self._run_algo("ga")
+        )
 
         self._progress = ttk.Progressbar(sec, mode="indeterminate", length=300)
         self._progress.pack(fill="x", pady=4)
@@ -929,6 +973,8 @@ class App(tk.Tk):
             font=("Helvetica", 10),
             bg=C["bg_card"],
             fg=C["green"],
+            wraplength=500,
+            justify="left",
         )
         self._result_label.pack(fill="x", pady=4)
 
@@ -942,41 +988,74 @@ class App(tk.Tk):
 
         tk.Label(
             sec2,
-            text="Apply SA to refine the baseline result:",
+            text="▼ Click buttons below for options ▼",
             bg=C["bg_panel"],
             fg=C["fg_lavender"],
-            font=("Helvetica", 9),
-        ).pack(anchor="w")
+            font=("Helvetica", 9, "italic"),
+        ).pack(anchor="w", pady=(0, 4))
 
         btn_frame = tk.Frame(sec2, bg=C["bg_panel"])
         btn_frame.pack(fill="x", pady=4)
 
-        self._btn_sa = tk.Button(
+        # ========== SA DROPDOWN ==========
+        self._btn_sa = tk.Menubutton(
             btn_frame,
-            text="Improve with SA",
+            text="▼ Improve with SA",
             font=("Helvetica", 10, "bold"),
             bg=C["pink_mid"],
             fg=C["fg_white"],
             relief="flat",
+            padx=8,
+            pady=6,
             state="disabled",
-            command=self._run_sa,
+            direction="below",
         )
         self._btn_sa.pack(side="left", padx=4)
 
-        self._btn_sa_interactive = tk.Button(
+        sa_menu = tk.Menu(self._btn_sa, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"])
+        self._btn_sa.config(menu=sa_menu)
+        sa_menu.add_command(
+            label="📖 Show Description", command=lambda: self._show_sa_description("sa")
+        )
+        sa_menu.add_separator()
+        sa_menu.add_command(label="▶ Run SA", command=self._run_sa)
+
+        # ========== SA INTERACTIVE DROPDOWN ==========
+        self._btn_sa_interactive = tk.Menubutton(
             btn_frame,
-            text="SA with User Input",
+            text="▼ SA with User Input",
             font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"],
             fg=C["fg_white"],
             relief="flat",
+            padx=8,
+            pady=6,
             state="disabled",
-            command=self._run_sa_interactive,
+            direction="below",
         )
         self._btn_sa_interactive.pack(side="left", padx=4)
 
+        sa_interactive_menu = tk.Menu(
+            self._btn_sa_interactive, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"]
+        )
+        self._btn_sa_interactive.config(menu=sa_interactive_menu)
+        sa_interactive_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_sa_description("sa_interactive"),
+        )
+        sa_interactive_menu.add_separator()
+        sa_interactive_menu.add_command(
+            label="▶ Run Interactive SA", command=self._run_sa_interactive
+        )
+
         self._sa_label = tk.Label(
-            sec2, text="", font=("Helvetica", 10), bg=C["bg_card"], fg=C["amber"]
+            sec2,
+            text="",
+            font=("Helvetica", 10),
+            bg=C["bg_card"],
+            fg=C["amber"],
+            wraplength=500,
+            justify="left",
         )
         self._sa_label.pack(fill="x", pady=4)
 
