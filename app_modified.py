@@ -375,6 +375,29 @@ class App(tk.Tk):
         self._apply_ttk_style()
         self._build_ui()
 
+    def _show_algo_description(self, algo_name):
+        """Show description for the selected algorithm"""
+        descriptions = {
+            "greedy": "📦 **Greedy Algorithm**\n\nPlaces items in the first container where they fit.\nSimple & fast, but not optimal for 3D bin packing.\n\n➤ Iterates through items in given order\n➤ Finds first container with enough remaining space\n➤ Places item without repositioning\n➤ Best for: Quick baseline solution",
+            "smart_greedy": "🧠 **Smart Greedy Algorithm**\n\nSorts items by volume (largest first) before placement.\nBetter space utilization than basic greedy.\n\n➤ Items sorted by volume descending\n➤ Always tries largest items first\n➤ Reduces wasted corner spaces\n➤ Good balance of speed & quality for 3D packing",
+            "ga": "🧬 **Genetic Algorithm**\n\nEvolutionary approach for near-optimal 3D packing.\nMore thorough exploration than greedy methods.\n\n➤ Creates population of random packing orders\n➤ Selects best solutions (highest space usage)\n➤ Crossover & mutation to evolve better orders\n➤ Best for: High-quality solutions when speed less critical",
+        }
+        desc = descriptions.get(algo_name, "Select an algorithm to see description.")
+        self._result_label.config(
+            text=desc, fg=C["fg_lavender"], justify="left", anchor="w", wraplength=500
+        )
+
+    def _show_sa_description(self, sa_type):
+        """Show description for Simulated Annealing options"""
+        descriptions = {
+            "sa": "🔥 **Simulated Annealing**\n\nImproves baseline solution by accepting worse moves to escape local optima.\n\n➤ Starts with high temperature (accepts many bad moves)\n➤ Gradually cools down (accepts fewer bad moves)\n➤ Balances exploration vs exploitation\n➤ Best for: Refining greedy/GA solutions for 3D bin packing",
+            "sa_interactive": "🎮 **SA with User Input**\n\nInteractive mode where you can adjust cooling parameters during optimization.\n\n➤ Watch temperature drop in real-time\n➤ Tune acceptance probability on-the-fly\n➤ See which item swaps improve packing\n➤ Best for: Learning how SA works and manual fine-tuning",
+        }
+        desc = descriptions.get(sa_type, "Select SA option to see description.")
+        self._sa_label.config(
+            text=desc, fg=C["fg_lavender"], justify="left", anchor="w", wraplength=500
+        )
+
     # ── TTK STYLE ─────────────────────────────────────────────────────────────
 
     def _apply_ttk_style(self):
@@ -473,11 +496,11 @@ class App(tk.Tk):
             bg=C["bg_panel"],
             fg=C["pink_soft"],
             padx=16,
-            pady=8,  # ← inner breathing room
+            pady=8,
             relief="groove",
             bd=1,
         )
-        f.pack(fill="x", padx=12, pady=(8, 0))  # ← outer margin
+        f.pack(fill="x", padx=12, pady=(8, 0))
         return f
 
     def _btn(self, parent, text, command, bg=None, **kw):
@@ -517,7 +540,7 @@ class App(tk.Tk):
                 selectcolor=C["bg_card"],
                 font=("Helvetica", 9),
                 command=self._on_preset_select,
-                wraplength=250,  # wrap text after 250 pixels
+                wraplength=250,
                 justify="left",
             )
             rb.pack(side="left")
@@ -853,53 +876,93 @@ class App(tk.Tk):
 
         tk.Label(
             sec,
-            text="Run Greedy, Smart Greedy or Genetic Algorithm first:",
+            text="▼ Click buttons below for options ▼",
             bg=C["bg_panel"],
             fg=C["fg_lavender"],
-            font=("Helvetica", 9),
-        ).pack(anchor="w")
+            font=("Helvetica", 9, "italic"),
+        ).pack(anchor="w", pady=(0, 4))
 
         bf = tk.Frame(sec, bg=C["bg_panel"])
         bf.pack(fill="x", pady=4)
 
-        self._btn_smart_greedy = tk.Button(
+        # ========== SMART GREEDY DROPDOWN ==========
+        self._btn_smart_greedy = tk.Menubutton(
             bf,
-            text="▶ Smart Greedy",
+            text="▼ Smart Greedy",
             font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"],
             fg=C["fg_white"],
             relief="flat",
             padx=8,
             pady=6,
-            command=self._run_smart_greedy,
+            direction="below",
         )
         self._btn_smart_greedy.pack(side="left", padx=4)
 
-        self._btn_greedy = tk.Button(
+        smart_greedy_menu = tk.Menu(
+            self._btn_smart_greedy, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"]
+        )
+        self._btn_smart_greedy.config(menu=smart_greedy_menu)
+        smart_greedy_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_algo_description("smart_greedy"),
+        )
+        smart_greedy_menu.add_separator()
+        smart_greedy_menu.add_command(
+            label="▶ Run Algorithm", command=self._run_smart_greedy
+        )
+
+        # ========== GREEDY DROPDOWN ==========
+        self._btn_greedy = tk.Menubutton(
             bf,
-            text="▶ Greedy",
+            text="▼ Greedy",
             font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"],
             fg=C["fg_white"],
             relief="flat",
             padx=8,
             pady=6,
-            command=lambda: self._run_algo("greedy"),
+            direction="below",
         )
         self._btn_greedy.pack(side="left", padx=4)
 
-        self._btn_ga = tk.Button(
+        greedy_menu = tk.Menu(
+            self._btn_greedy, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"]
+        )
+        self._btn_greedy.config(menu=greedy_menu)
+        greedy_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_algo_description("greedy"),
+        )
+        greedy_menu.add_separator()
+        greedy_menu.add_command(
+            label="▶ Run Algorithm", command=lambda: self._run_algo("greedy")
+        )
+
+        # ========== GENETIC DROPDOWN ==========
+        self._btn_ga = tk.Menubutton(
             bf,
-            text="▶ Genetic",
+            text="▼ Genetic",
             font=("Helvetica", 10, "bold"),
             bg=C["pink_hot"],
             fg=C["fg_white"],
             relief="flat",
             padx=8,
             pady=6,
-            command=lambda: self._run_algo("ga"),
+            direction="below",
         )
         self._btn_ga.pack(side="left", padx=4)
+
+        ga_menu = tk.Menu(self._btn_ga, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"])
+        self._btn_ga.config(menu=ga_menu)
+        ga_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_algo_description("ga"),
+        )
+        ga_menu.add_separator()
+        ga_menu.add_command(
+            label="▶ Run Algorithm", command=lambda: self._run_algo("ga")
+        )
 
         self._progress = ttk.Progressbar(sec, mode="indeterminate", length=300)
         self._progress.pack(fill="x", pady=4)
@@ -910,6 +973,8 @@ class App(tk.Tk):
             font=("Helvetica", 10),
             bg=C["bg_card"],
             fg=C["green"],
+            wraplength=500,
+            justify="left",
         )
         self._result_label.pack(fill="x", pady=4)
 
@@ -923,85 +988,175 @@ class App(tk.Tk):
 
         tk.Label(
             sec2,
-            text="Apply SA to refine the baseline result:",
+            text="▼ Click buttons below for options ▼",
             bg=C["bg_panel"],
             fg=C["fg_lavender"],
-            font=("Helvetica", 9),
-        ).pack(anchor="w")
+            font=("Helvetica", 9, "italic"),
+        ).pack(anchor="w", pady=(0, 4))
 
         btn_frame = tk.Frame(sec2, bg=C["bg_panel"])
         btn_frame.pack(fill="x", pady=4)
 
-        self._btn_sa = tk.Button(
+        # ========== SA DROPDOWN ==========
+        self._btn_sa = tk.Menubutton(
             btn_frame,
-            text="Improve with SA",
+            text="▼ Improve with SA",
             font=("Helvetica", 10, "bold"),
             bg=C["pink_mid"],
             fg=C["fg_white"],
             relief="flat",
+            padx=8,
+            pady=6,
             state="disabled",
-            command=self._run_sa,
+            direction="below",
         )
         self._btn_sa.pack(side="left", padx=4)
 
-        self._btn_sa_interactive = tk.Button(
+        sa_menu = tk.Menu(self._btn_sa, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"])
+        self._btn_sa.config(menu=sa_menu)
+        sa_menu.add_command(
+            label="📖 Show Description", command=lambda: self._show_sa_description("sa")
+        )
+        sa_menu.add_separator()
+        sa_menu.add_command(label="▶ Run SA", command=self._run_sa)
+
+        # ========== SA INTERACTIVE DROPDOWN ==========
+        self._btn_sa_interactive = tk.Menubutton(
             btn_frame,
-            text="SA with User Input",
+            text="▼ SA with User Input",
             font=("Helvetica", 10, "bold"),
             bg=C["purple_btn"],
             fg=C["fg_white"],
             relief="flat",
+            padx=8,
+            pady=6,
             state="disabled",
-            command=self._run_sa_interactive,
+            direction="below",
         )
         self._btn_sa_interactive.pack(side="left", padx=4)
 
+        sa_interactive_menu = tk.Menu(
+            self._btn_sa_interactive, tearoff=0, bg=C["bg_light"], fg=C["fg_dark"]
+        )
+        self._btn_sa_interactive.config(menu=sa_interactive_menu)
+        sa_interactive_menu.add_command(
+            label="📖 Show Description",
+            command=lambda: self._show_sa_description("sa_interactive"),
+        )
+        sa_interactive_menu.add_separator()
+        sa_interactive_menu.add_command(
+            label="▶ Run Interactive SA", command=self._run_sa_interactive
+        )
+
         self._sa_label = tk.Label(
-            sec2, text="", font=("Helvetica", 10), bg=C["bg_card"], fg=C["amber"]
+            sec2,
+            text="",
+            font=("Helvetica", 10),
+            bg=C["bg_card"],
+            fg=C["amber"],
+            wraplength=500,
+            justify="left",
         )
         self._sa_label.pack(fill="x", pady=4)
 
         # =========================================================
-        # TAB 3 — PARAMETERS
+        # TAB 3 — PARAMETERS (VERTICAL LAYOUT)
         # =========================================================
         tab3 = tk.Frame(nb, bg=C["bg_panel"])
         nb.add(tab3, text="SA Parameters")
 
-        sec3 = self._section(tab3, "SA Parameters")
+        # Main container frame
+        params_container = tk.Frame(tab3, bg=C["bg_panel"])
+        params_container.pack(fill="both", expand=True, padx=12, pady=12)
 
+        # Title
+        tk.Label(
+            params_container,
+            text="Simulated Annealing Parameters",
+            font=("Helvetica", 12, "bold"),
+            bg=C["bg_panel"],
+            fg=C["pink_soft"],
+        ).pack(anchor="w", pady=(0, 12))
+
+        # Create a canvas with scrollbar for vertical scrolling
+        canvas = tk.Canvas(params_container, bg=C["bg_panel"], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(
+            params_container, orient="vertical", command=canvas.yview
+        )
+        scrollable_frame = tk.Frame(canvas, bg=C["bg_panel"])
+
+        scrollable_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Parameter entries (vertical layout)
         self._sa_params = {}
-        for lbl, default in [
-            ("Start Temp", "150"),
-            ("End Temp", "5"),
-            ("Cooling Rate", "0.97"),
-            ("Iters/Step", "6"),
-            ("Target %", "80"),
-        ]:
-            row = tk.Frame(sec3, bg=C["bg_panel"])
-            row.pack(fill="x", pady=2)
 
+        param_fields = [
+            ("Start Temp", "150", "Initial temperature (higher = more exploration)"),
+            ("End Temp", "5", "Final temperature (lower = more refinement)"),
+            ("Cooling Rate", "0.97", "Cooling factor (0.8-0.99 typical)"),
+            ("Iters/Step", "6", "Number of iterations at each temperature"),
+            ("Target %", "80", "Early stop target percentage"),
+        ]
+
+        for field, default_value, tooltip in param_fields:
+            # Create frame for each parameter (vertical layout)
+            param_frame = tk.Frame(scrollable_frame, bg=C["bg_panel"], pady=8)
+            param_frame.pack(fill="x", padx=12, pady=(0, 8))
+
+            # Label on top (vertical)
             tk.Label(
-                row,
-                text=lbl + ":",
+                param_frame,
+                text=field + ":",
+                font=("Helvetica", 10, "bold"),
                 bg=C["bg_panel"],
                 fg=C["fg_lavender"],
-                font=("Helvetica", 9),
-                width=14,
                 anchor="w",
-            ).pack(side="left")
+            ).pack(anchor="w", pady=(0, 4))
 
-            e = tk.Entry(
-                row,
-                width=10,
-                font=("Helvetica", 9),
+            # Entry field
+            entry = tk.Entry(
+                param_frame,
+                font=("Helvetica", 10),
+                width=20,
                 bg=C["bg_light"],
                 fg=C["fg_dark"],
                 relief="flat",
+                insertbackground=C["purple_dark"],
             )
-            e.insert(0, default)
-            e.pack(side="left", padx=4)
+            entry.insert(0, default_value)
+            entry.pack(anchor="w", pady=(0, 4))
 
-            self._sa_params[lbl] = e
+            # Tooltip/hint
+            tk.Label(
+                param_frame,
+                text=tooltip,
+                font=("Helvetica", 8, "italic"),
+                bg=C["bg_panel"],
+                fg=C["purple_hi"],
+                anchor="w",
+                wraplength=350,
+            ).pack(anchor="w")
+
+            self._sa_params[field] = entry
+
+        # Add some spacing at the bottom
+        tk.Frame(scrollable_frame, height=20, bg=C["bg_panel"]).pack()
+
+        # Bind mousewheel to canvas for scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
 
     # ── TAB 4: Edit Placed Boxes ──────────────────────────────────────────────
 
