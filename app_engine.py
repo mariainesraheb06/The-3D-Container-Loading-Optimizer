@@ -347,15 +347,15 @@ def simulated_annealing(
     iters_per_step: int = 30,
     progress_cb=None,
 ) -> Tuple[List[dict], float, float]:
-    opt_boxes = [
-        _to_optimizer_box(box)
-        for box in (initial_sequence if initial_sequence is not None else boxes)
-    ]
-    opt_container = _to_optimizer_container(container)
-    return _fast_simulated_annealing(
-        opt_boxes,
-        opt_container,
-        initial_sequence=opt_boxes if initial_sequence is not None else None,
+    """
+    Standard simulated annealing wrapper.
+    Uses the already-implemented interactive SA engine internally.
+    """
+
+    placed_boxes, util, exec_time = simulated_annealing_interactive(
+        boxes=boxes,
+        container=container,
+        initial_sequence=initial_sequence,
         T_start=T_start,
         T_end=T_end,
         cooling=cooling,
@@ -363,11 +363,31 @@ def simulated_annealing(
         progress_cb=progress_cb,
     )
 
+    # convert placed objects into UI dictionaries
+    converted = []
+
+    for pb in placed_boxes:
+
+        converted.append({
+            "id": pb.box.id,
+            "pos": (pb.x, pb.z, pb.y),
+            "dim": (pb.l, pb.w, pb.h),
+            "weight": getattr(pb.box, "weight", pb.box.weight_kg),
+            "fragile": pb.box.fragile,
+        })
+
+    return converted, util, exec_time
+
 
 def _to_optimizer_box(box: Box):
-    from optimizer import Box as OptimizerBox
+    """
+    Convert app Box -> notebook/runtime Box.
+    Avoids importing nonexistent optimizer.py
+    """
 
-    return OptimizerBox(
+    ns = _load_notebook_namespace()
+
+    return ns["Box"](
         id=box.id,
         length=box.length,
         width=box.width,
@@ -378,10 +398,14 @@ def _to_optimizer_box(box: Box):
 
 
 def _to_optimizer_container(container: Container):
-    from optimizer import Container as OptimizerContainer
+    """
+    Convert app Container -> notebook/runtime Container.
+    Avoids importing nonexistent optimizer.py
+    """
 
-    return OptimizerContainer(
-        name=container.name,
+    ns = _load_notebook_namespace()
+
+    return ns["Container"](
         length=container.length,
         width=container.width,
         height=container.height,
@@ -442,104 +466,206 @@ def smart_greedy_pack(boxes, container, progress_cb=None):
     return best_placed, best_util, best_strategy
 
 
-def simulated_annealing_interactive(boxes, container, initial_sequence=None,
-                                     T_start=500.0, T_end=5.0, cooling=0.97, 
-                                     iters_per_step=6, target_pct=80.0,
-                                     progress_cb=None, user_ask_cb=None):
+def simulated_annealing_interactive(
+    boxes,
+    container,
+    initial_sequence=None,
+    T_start=500.0,
+    T_end=5.0,
+    cooling=0.97,
+    iters_per_step=6,
+    target_pct=80.0,
+    progress_cb=None,
+    user_ask_cb=None
+):
     """
     Simulated Annealing with user interaction (asks to continue at target).
     user_ask_cb: function(current_util, pct_of_max, iteration) -> bool
                  Returns True to continue, False to stop.
     """
 
+    ns = _load_notebook_namespace()
+
+    SpaceManager = ns["SpaceManager"]
+
     if initial_sequence is None:
-        initial_sequence = sorted(boxes, key=lambda b: b.volume, reverse=True)
-    
+        initial_sequence = sorted(
+            boxes,
+            key=lambda b: b.volume,
+            reverse=True
+        )
+
     current_seq = initial_sequence[:]
     random.shuffle(current_seq)
-    
-    sm = SpaceManager(container)
+
+    sm = SpaceManager(_nb_container(container))
+
     for box in current_seq:
-        space, dims = sm.find_placement(box, strategy="bottom")
+
+        nb_box = _nb_box(box)
+
+        space, dims = sm.find_placement(
+            nb_box,
+            strategy="bottom"
+        )
+
         if space and dims:
-            sm.place_box(box, space, dims)
-    
+            sm.place_box(nb_box, space, dims)
+
     current_score = sm.packed_volume
+
     best_seq = current_seq[:]
     best_score = current_score
-    
+
     theoretical_max = sum(b.volume for b in boxes)
+
     target_volume = theoretical_max * (target_pct / 100.0)
+
     target_reached = False
-    
+    should_continue = True
+
     T = T_start
     step = 0
+
     total_iterations = 0
     no_improvement_count = 0
+
     start_time = time.time()
-    
+
     while T > T_end:
+
         for _ in range(iters_per_step):
+
             total_iterations += 1
-            
+
             if not target_reached and best_score >= target_volume:
+
                 target_reached = True
-                current_util = best_score / container.volume * 100
-                pct_of_max = best_score / theoretical_max * 100
-                
+
+                current_util = (
+                    best_score / container.volume * 100
+                )
+
+                pct_of_max = (
+                    best_score / theoretical_max * 100
+                )
+
                 if user_ask_cb:
-                    should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
+
+                    should_continue = user_ask_cb(
+                        current_util,
+                        pct_of_max,
+                        total_iterations
+                    )
+
                     if not should_continue:
                         break
+
                 else:
-                    print(f"Target reached at iteration {total_iterations}: {current_util:.1f}%")
-            
+                    print(
+                        f"Target reached at iteration "
+                        f"{total_iterations}: "
+                        f"{current_util:.1f}%"
+                    )
+
             new_seq = current_seq[:]
-            i, j = random.sample(range(len(new_seq)), 2)
-            new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
-            
-            sm2 = SpaceManager(container)
+
+            i, j = random.sample(
+                range(len(new_seq)),
+                2
+            )
+
+            new_seq[i], new_seq[j] = (
+                new_seq[j],
+                new_seq[i]
+            )
+
+            sm2 = SpaceManager(_nb_container(container))
+
             for box in new_seq:
-                space, dims = sm2.find_placement(box, strategy="bottom")
+
+                nb_box = _nb_box(box)
+
+                space, dims = sm2.find_placement(
+                    nb_box,
+                    strategy="bottom"
+                )
+
                 if space and dims:
-                    sm2.place_box(box, space, dims)
+                    sm2.place_box(nb_box, space, dims)
+
             new_score = sm2.packed_volume
-            
+
             delta = new_score - current_score
-            
-            if delta > 0 or (T > 1e-10 and random.random() < math.exp(delta / T)):
+
+            if (
+                delta > 0 or
+                (
+                    T > 1e-10 and
+                    random.random() < math.exp(delta / T)
+                )
+            ):
+
                 current_seq = new_seq
                 current_score = new_score
+
                 no_improvement_count = 0
+
             else:
                 no_improvement_count += 1
-            
+
             if current_score > best_score:
+
                 best_score = current_score
                 best_seq = current_seq[:]
+
                 no_improvement_count = 0
-            
-            if progress_cb and total_iterations % 10 == 0:
-                progress_cb(T, best_score / container.volume * 100, total_iterations)
-            
+
+            if (
+                progress_cb and
+                total_iterations % 10 == 0
+            ):
+
+                progress_cb(
+                    T,
+                    best_score / container.volume * 100,
+                    total_iterations
+                )
+
             if no_improvement_count > 200:
                 break
-        
+
         if target_reached and not should_continue:
             break
-        
+
         T *= cooling
         step += 1
-    
-    sm_best = SpaceManager(container)
+
+    sm_best = SpaceManager(_nb_container(container))
+
     for box in best_seq:
-        space, dims = sm_best.find_placement(box, strategy="bottom")
+
+        nb_box = _nb_box(box)
+
+        space, dims = sm_best.find_placement(
+            nb_box,
+            strategy="bottom"
+        )
+
         if space and dims:
-            sm_best.place_box(box, space, dims)
-    
+            sm_best.place_box(
+                nb_box,
+                space,
+                dims
+            )
+
     execution_time = time.time() - start_time
-    
-    return sm_best.placed_boxes, sm_best.utilization(), execution_time
+
+    return (
+        sm_best.placed_boxes,
+        sm_best.utilization(),
+        execution_time
+    )
 
 def validate_result(
     placed: List[dict],
