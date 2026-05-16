@@ -26,13 +26,15 @@ from copy import deepcopy
 
 NOTEBOOK_PATH = Path(__file__).parent / "notebooks" / "NoteBook.ipynb"
 
+
 def _node_source(source: str, node: ast.AST) -> str:
     lines = source.splitlines()
     start = node.lineno
     if getattr(node, "decorator_list", None):
         start = min(dec.lineno for dec in node.decorator_list)
     end = node.end_lineno
-    return "\n".join(lines[start - 1:end])
+    return "\n".join(lines[start - 1 : end])
+
 
 @dataclass
 class Box:
@@ -52,9 +54,12 @@ class Box:
         if self.fragile:
             return [(l, w, h), (w, l, h)]
         return [
-            (l, w, h), (l, h, w),
-            (w, l, h), (w, h, l),
-            (h, l, w), (h, w, l),
+            (l, w, h),
+            (l, h, w),
+            (w, l, h),
+            (w, h, l),
+            (h, l, w),
+            (h, w, l),
         ]
 
     def orientation_labels(self) -> List[str]:
@@ -159,29 +164,41 @@ def _nb_problem(boxes: List[Box], container: Container):
 def _to_app_placements(result) -> List[dict]:
     placed = []
     for p in result.placed_boxes:
-        placed.append({
-            "id": p.box.id,
-            "pos": (p.x, p.z, p.y),
-            "dim": (p.l, p.w, p.h),
-            "weight": p.box.weight_kg,
-            "fragile": p.box.fragile,
-        })
+        placed.append(
+            {
+                "id": p.box.id,
+                "pos": (p.x, p.z, p.y),
+                "dim": (p.l, p.w, p.h),
+                "weight": p.box.weight_kg,
+                "fragile": p.box.fragile,
+            }
+        )
     return placed
 
-def _check_overlap(p1: Tuple[float, float, float], d1: Tuple[float, float, float],
-                   p2: Tuple[float, float, float], d2: Tuple[float, float, float]) -> bool:
+
+def _check_overlap(
+    p1: Tuple[float, float, float],
+    d1: Tuple[float, float, float],
+    p2: Tuple[float, float, float],
+    d2: Tuple[float, float, float],
+) -> bool:
     x1, y1, z1 = p1
     l1, w1, h1 = d1
     x2, y2, z2 = p2
     l2, w2, h2 = d2
     return not (
-        x1 + l1 <= x2 or x2 + l2 <= x1 or
-        y1 + w1 <= y2 or y2 + w2 <= y1 or
-        z1 + h1 <= z2 or z2 + h2 <= z1
+        x1 + l1 <= x2
+        or x2 + l2 <= x1
+        or y1 + w1 <= y2
+        or y2 + w2 <= y1
+        or z1 + h1 <= z2
+        or z2 + h2 <= z1
     )
 
 
-def _is_supported(x: float, y: float, z: float, l: float, w: float, placed: List[dict]) -> bool:
+def _is_supported(
+    x: float, y: float, z: float, l: float, w: float, placed: List[dict]
+) -> bool:
     if z < 1e-6:
         return True
     for pb in placed:
@@ -205,22 +222,29 @@ def pack_sequence_with_forced(
     vol_packed = 0.0
 
     for box in sequence:
-        oris = ([forced_orientations[box.id]]
-                if box.id in forced_orientations else box.get_orientations())
+        oris = (
+            [forced_orientations[box.id]]
+            if box.id in forced_orientations
+            else box.get_orientations()
+        )
         best_pos = best_ori = None
         best_score = float("inf")
 
         for ori in oris:
             bl, bw, bh = ori
             for cx, cy, cz in candidates:
-                if (cx + bl > container.length or
-                        cy + bw > container.width or
-                        cz + bh > container.height):
+                if (
+                    cx + bl > container.length
+                    or cy + bw > container.width
+                    or cz + bh > container.height
+                ):
                     continue
                 if not _is_supported(cx, cy, cz, bl, bw, placed):
                     continue
-                if any(_check_overlap((cx, cy, cz), (bl, bw, bh), pb["pos"], pb["dim"])
-                       for pb in placed):
+                if any(
+                    _check_overlap((cx, cy, cz), (bl, bw, bh), pb["pos"], pb["dim"])
+                    for pb in placed
+                ):
                     continue
                 score = cx + cy + cz + cz * box.weight_kg
                 if score < best_score:
@@ -231,20 +255,24 @@ def pack_sequence_with_forced(
         if best_pos:
             bx, by, bz = best_pos
             bl, bw, bh = best_ori
-            placed.append({
-                "id": box.id,
-                "pos": best_pos,
-                "dim": best_ori,
-                "weight": box.weight_kg,
-                "fragile": box.fragile,
-                "original_box": box,
-            })
+            placed.append(
+                {
+                    "id": box.id,
+                    "pos": best_pos,
+                    "dim": best_ori,
+                    "weight": box.weight_kg,
+                    "fragile": box.fragile,
+                    "original_box": box,
+                }
+            )
             vol_packed += bl * bw * bh
-            candidates.extend([
-                (bx + bl, by, bz),
-                (bx, by + bw, bz),
-                (bx, by, bz + bh),
-            ])
+            candidates.extend(
+                [
+                    (bx + bl, by, bz),
+                    (bx, by + bw, bz),
+                    (bx, by, bz + bh),
+                ]
+            )
 
     util_pct = (vol_packed / container.volume) * 100.0 if container.volume > 0 else 0.0
     return placed, util_pct
@@ -282,6 +310,7 @@ def draw_box_3d(ax, pos, dim, color, alpha=0.55, highlight=False):
         facecolors=color,
     )
     ax.add_collection3d(poly)
+
 
 def pack_sequence(
     sequence: List[Box],
@@ -387,59 +416,72 @@ def _to_optimizer_container(container: Container):
         height=container.height,
     )
 
+
 def smart_greedy_pack(boxes, container, progress_cb=None):
     """
     Multi-strategy greedy that tries multiple sorting strategies and returns the best.
     Uses greedy_pack which is already working.
     """
     from app_engine import greedy_pack
-    
+
     strategies = [
         ("Volume (largest first)", lambda b: b.volume),
         ("Volume (smallest first)", lambda b: -b.volume),
         ("Max dimension", lambda b: max(b.length, b.width, b.height)),
-        ("Min dimension (small boxes last)", lambda b: -min(b.length, b.width, b.height)),
+        (
+            "Min dimension (small boxes last)",
+            lambda b: -min(b.length, b.width, b.height),
+        ),
         ("Area (footprint)", lambda b: b.length * b.width),
         ("Perimeter", lambda b: b.length + b.width + b.height),
-        ("Surface area", lambda b: 2*(b.length*b.width + b.length*b.height + b.width*b.height)),
+        (
+            "Surface area",
+            lambda b: 2
+            * (b.length * b.width + b.length * b.height + b.width * b.height),
+        ),
         ("Volume × Density (heavy + large)", lambda b: b.volume * b.weight_kg),
-        ("Density (heavy first)", lambda b: b.weight_kg / b.volume if b.volume > 0 else 0),
+        (
+            "Density (heavy first)",
+            lambda b: b.weight_kg / b.volume if b.volume > 0 else 0,
+        ),
         ("Fragile first", lambda b: (0 if b.fragile else 1, -b.volume)),
         ("Original order", None),
     ]
-    
+
     best_placed = None
     best_util = 0
     best_strategy = None
-    
+
     total = len(strategies)
     for idx, (strategy_name, key_func) in enumerate(strategies):
         if progress_cb:
             progress_cb(idx, total, strategy_name)
-        
+
         # Sort boxes according to strategy
         if key_func is None:
             sorted_boxes = boxes[:]
         else:
             sorted_boxes = sorted(boxes, key=key_func, reverse=True)
-        
+
         # Use greedy_pack - this already works with your notebook
         try:
             placed, util, _ = greedy_pack(sorted_boxes, container)
         except:
             # Fallback to pack_sequence if greedy_pack fails
             from app_engine import pack_sequence
+
             placed, util = pack_sequence(sorted_boxes, container)
-        
+
         if util > best_util:
             best_util = util
             best_placed = placed
             best_strategy = strategy_name
-    
+
     if progress_cb:
         progress_cb(total, total, f"Best: {best_strategy}")
-    
+
     return best_placed, best_util, best_strategy
+
 
 def simulated_annealing_interactive(
     boxes: List[Box],
@@ -458,72 +500,82 @@ def simulated_annealing_interactive(
     Simulated Annealing with user interaction - matches notebook behavior.
     """
     from app_engine import pack_sequence
-    
+
     # Start with initial sequence or default
     if initial_sequence is None:
         current_seq = sorted(boxes, key=lambda b: b.volume, reverse=True)
     else:
         current_seq = initial_sequence[:]
-    
+
     random.shuffle(current_seq)
-    
+
     # Initial evaluation
     placed, current_score = pack_sequence(current_seq, container)
-    
+
     best_seq = current_seq[:]
     best_score = current_score
-    
+
     theoretical_max = sum(b.volume for b in boxes)
     container_vol = container.volume
     target_volume = theoretical_max * (target_pct / 100.0)
     target_reached = False
-    
+
     T = T_start
     total_iterations = 0
     no_improvement_count = 0
     start_time = time.time()
     should_continue = True
-    
+
     print(f"\n{'='*60}")
     print(f"SA Interactive Started")
     print(f"  Theoretical max: {theoretical_max/container_vol*100:.1f}% of container")
-    print(f"  Target: {target_pct}% of theoretical max = {target_volume/container_vol*100:.1f}% of container")
+    print(
+        f"  Target: {target_pct}% of theoretical max = {target_volume/container_vol*100:.1f}% of container"
+    )
     print(f"  Initial: {best_score/container_vol*100:.1f}% of container")
     print(f"{'='*60}\n")
-    
+
     while T > T_end and should_continue:
         for _ in range(iters_per_step):
             total_iterations += 1
-            
+
             # Print progress every 100 iterations
             if total_iterations % 100 == 0:
-                print(f"  Iter {total_iterations}: T={T:.2f}, best={best_score/container_vol*100:.1f}%")
-            
+                print(
+                    f"  Iter {total_iterations}: T={T:.2f}, best={best_score/container_vol*100:.1f}%"
+                )
+
             # Check if target reached
             if not target_reached and best_score >= target_volume:
                 target_reached = True
                 current_util = best_score / container_vol * 100
                 pct_of_max = best_score / theoretical_max * 100
-                
+
                 print(f"\nTARGET REACHED at iteration {total_iterations}!")
-                print(f"   {pct_of_max:.1f}% of theoretical max ({current_util:.1f}% of container)")
-                
+                print(
+                    f"   {pct_of_max:.1f}% of theoretical max ({current_util:.1f}% of container)"
+                )
+
                 if user_ask_cb:
-                    should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
-                    print(f"   User chose to {'continue' if should_continue else 'stop'}")
+                    should_continue = user_ask_cb(
+                        current_util, pct_of_max, total_iterations
+                    )
+                    print(
+                        f"   User chose to {'continue' if should_continue else 'stop'}"
+                    )
                     if not should_continue:
                         break
-            
+
             # Create neighbor by swapping
             new_seq = current_seq[:]
             i, j = random.sample(range(len(new_seq)), 2)
             new_seq[i], new_seq[j] = new_seq[j], new_seq[i]
-            
+
             # Evaluate new sequence
             placed, new_score = pack_sequence(new_seq, container)
-            
+
             delta = new_score - current_score
-            
+
             # Acceptance criterion
             if delta > 0 or (T > 1e-10 and random.random() < math.exp(delta / T)):
                 current_seq = new_seq
@@ -531,58 +583,67 @@ def simulated_annealing_interactive(
                 no_improvement_count = 0
             else:
                 no_improvement_count += 1
-            
+
             if current_score > best_score:
                 best_score = current_score
                 best_seq = current_seq[:]
                 no_improvement_count = 0
-                
+
                 # If target already reached and we found improvement, ask again
                 if target_reached and user_ask_cb:
                     current_util = best_score / container_vol * 100
                     pct_of_max = best_score / theoretical_max * 100
                     print(f"\n IMPROVED to {pct_of_max:.1f}% of theoretical max!")
-                    should_continue = user_ask_cb(current_util, pct_of_max, total_iterations)
-                    print(f"   User chose to {'continue' if should_continue else 'stop'}")
+                    should_continue = user_ask_cb(
+                        current_util, pct_of_max, total_iterations
+                    )
+                    print(
+                        f"   User chose to {'continue' if should_continue else 'stop'}"
+                    )
                     if not should_continue:
                         break
-            
+
             # Progress callback for GUI
             if progress_cb and total_iterations % 10 == 0:
                 progress_cb(T, best_score / container_vol * 100, total_iterations)
-            
+
             # Early stop if stuck
             if no_improvement_count > 200:
-                print(f"\nNo improvement for {no_improvement_count} iterations - stopping")
+                print(
+                    f"\nNo improvement for {no_improvement_count} iterations - stopping"
+                )
                 break
-        
+
         # Check if user stopped
         if not should_continue:
             break
-        
+
         T *= cooling
-    
+
     # Final packing with best sequence
     placed, _ = pack_sequence(best_seq, container)
     execution_time = time.time() - start_time
-    
+
     print(f"\n{'='*60}")
     print(f"SA Interactive Finished")
     print(f"  Final utilization: {best_score/container_vol*100:.2f}%")
     print(f"  Time: {execution_time:.1f}s")
     print(f"{'='*60}\n")
-    
+
     return placed, best_score / container_vol * 100, execution_time
+
 
 def validate_result(
     placed: List[dict],
     container: Container,
-    verbose: bool = True,) -> dict:
+    verbose: bool = True,
+) -> dict:
     overlaps = []
     for i in range(len(placed)):
         for j in range(i + 1, len(placed)):
-            if _check_overlap(placed[i]["pos"], placed[i]["dim"],
-                            placed[j]["pos"], placed[j]["dim"]):
+            if _check_overlap(
+                placed[i]["pos"], placed[i]["dim"], placed[j]["pos"], placed[j]["dim"]
+            ):
                 overlaps.append((placed[i]["id"], placed[j]["id"]))
 
     no_overlap = len(overlaps) == 0
@@ -591,10 +652,14 @@ def validate_result(
     for pb in placed:
         x, y, z = pb["pos"]
         l, w, h = pb["dim"]
-        if (x < 0 or y < 0 or z < 0 or
-                x + l > container.length or
-                y + w > container.width or
-                z + h > container.height):
+        if (
+            x < 0
+            or y < 0
+            or z < 0
+            or x + l > container.length
+            or y + w > container.width
+            or z + h > container.height
+        ):
             oob.append(pb["id"])
 
     in_bounds = len(oob) == 0
@@ -614,18 +679,24 @@ def validate_result(
         print("=" * 60)
         print("  VALIDATION REPORT")
         print("=" * 60)
-        print(f"  No overlaps    : {'PASS' if no_overlap else f'FAIL ({len(overlaps)} pairs)'}")
+        print(
+            f"  No overlaps    : {'PASS' if no_overlap else f'FAIL ({len(overlaps)} pairs)'}"
+        )
         if not no_overlap:
             for a, b in overlaps[:5]:
                 print(f"                   -> Box {a} <-> Box {b}")
             if len(overlaps) > 5:
                 print(f"                   -> ... and {len(overlaps) - 5} more")
 
-        print(f"  In bounds      : {'PASS' if in_bounds else f'FAIL ({len(oob)} boxes)'}")
+        print(
+            f"  In bounds      : {'PASS' if in_bounds else f'FAIL ({len(oob)} boxes)'}"
+        )
         if not in_bounds:
             print(f"                   -> IDs: {oob[:10]}")
 
-        print(f"  No floating    : {'PASS' if no_floating else f'FAIL ({len(floating)} boxes)'}")
+        print(
+            f"  No floating    : {'PASS' if no_floating else f'FAIL ({len(floating)} boxes)'}"
+        )
         if not no_floating:
             print(f"                   -> IDs: {floating[:10]}")
         print("=" * 60)
@@ -640,13 +711,14 @@ def validate_result(
         "floating": floating,
     }
 
+
 def trim_unfittable_boxes(boxes: List[Box], container: Container) -> List[Box]:
     """
     Remove boxes that cannot theoretically fit in the container in any orientation.
     """
     trimmed_boxes = []
     removed_ids = []
-    
+
     for box in boxes:
         # Check if box can fit in any orientation
         fits = False
@@ -654,79 +726,93 @@ def trim_unfittable_boxes(boxes: List[Box], container: Container) -> List[Box]:
             if l <= container.length and w <= container.width and h <= container.height:
                 fits = True
                 break
-        
+
         if fits:
             trimmed_boxes.append(box)
         else:
             removed_ids.append(box.id)
-    
+
     if removed_ids:
-        print(f"⚠️ Removed {len(removed_ids)} box(es) that cannot fit: {removed_ids[:10]}...")
-    
+        print(
+            f"⚠️ Removed {len(removed_ids)} box(es) that cannot fit: {removed_ids[:10]}..."
+        )
+
     return trimmed_boxes
+
 
 def _to_app_placements_from_notebook(result) -> List[dict]:
     """Convert notebook PackingResult to app format."""
     placed = []
     for p in result.placed_boxes:
-        placed.append({
-            "id": p.box.id,
-            "pos": (p.x, p.z, p.y),
-            "dim": (p.l, p.w, p.h),
-            "weight": p.box.weight_kg,
-            "fragile": p.box.fragile,
-        })
+        placed.append(
+            {
+                "id": p.box.id,
+                "pos": (p.x, p.z, p.y),
+                "dim": (p.l, p.w, p.h),
+                "weight": p.box.weight_kg,
+                "fragile": p.box.fragile,
+            }
+        )
     return placed
 
-def trim_boxes_to_capacity(boxes: List[Box], container: Container) -> Tuple[List[Box], float]:
+
+def trim_boxes_to_capacity(
+    boxes: List[Box], container: Container
+) -> Tuple[List[Box], float]:
     """
     Remove boxes from the end until total volume <= container capacity.
     """
     current_volume = 0
     trimmed_boxes = []
-    
+
     for box in boxes:
         if current_volume + box.volume <= container.volume:
             trimmed_boxes.append(box)
             current_volume += box.volume
         else:
             break  # Stop when capacity reached (keeps first N boxes)
-    
-    utilization = (current_volume / container.volume) * 100 if container.volume > 0 else 0
+
+    utilization = (
+        (current_volume / container.volume) * 100 if container.volume > 0 else 0
+    )
     removed = len(boxes) - len(trimmed_boxes)
-    
+
     print(f"Original boxes: {len(boxes)}")
     print(f"Boxes after trimming: {len(trimmed_boxes)}")
     print(f"Total volume: {current_volume:.2f} / {container.volume:.2f}")
     print(f"Utilization: {utilization:.2f}%")
     print(f"Removed {removed} boxes from the end")
-    
+
     return trimmed_boxes, utilization
 
 
-def trim_boxes_by_volume(boxes: List[Box], container: Container) -> Tuple[List[Box], float, int]:
+def trim_boxes_by_volume(
+    boxes: List[Box], container: Container
+) -> Tuple[List[Box], float, int]:
     """
     Sort by volume (largest first) and keep until capacity.
     This maximizes utilization when you have to choose.
     """
     sorted_boxes = sorted(boxes, key=lambda b: b.volume, reverse=True)
-    
+
     current_volume = 0
     trimmed_boxes = []
-    
+
     for box in sorted_boxes:
         if current_volume + box.volume <= container.volume:
             trimmed_boxes.append(box)
             current_volume += box.volume
-    
-    utilization = (current_volume / container.volume) * 100 if container.volume > 0 else 0
+
+    utilization = (
+        (current_volume / container.volume) * 100 if container.volume > 0 else 0
+    )
     removed = len(boxes) - len(trimmed_boxes)
-    
+
     print(f"Original boxes: {len(boxes)}")
     print(f"Boxes after trimming (by volume): {len(trimmed_boxes)}")
     print(f"Total volume: {current_volume:.2f} / {container.volume:.2f}")
     print(f"Utilization: {utilization:.2f}%")
-    
+
     return trimmed_boxes, utilization, removed
 
 
